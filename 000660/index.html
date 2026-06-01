@@ -349,7 +349,7 @@
       </div>
     </div>
     <div class="chart-wrap tall"><canvas id="priceChart"></canvas></div>
-    <div style="font-size:11px;color:var(--muted);margin:6px 2px 0">📉 볼린저밴드(20기간 · 2σ): <span style="color:#a78bfa;font-weight:700">밴드</span> · <span style="color:#fbbf24;font-weight:700">20 이동평균</span></div>
+    <div style="font-size:11px;color:var(--muted);margin:6px 2px 0">📉 볼린저밴드(20기간 · 2σ): <span style="color:#a78bfa;font-weight:700">밴드</span> · <span style="color:#fbbf24;font-weight:700">20 이동평균</span> · <span style="color:#f87171;font-weight:700">● 상단 돌파</span> · <span style="color:#60a5fa;font-weight:700">● 하단 이탈</span></div>
     <div class="chart-wrap" style="height:120px;margin-top:8px"><canvas id="volumeChart"></canvas></div>
   </div>
 
@@ -806,6 +806,8 @@ function renderPriceCharts(periodDays) {
   var _bb = computeBB(_cl, 20, 2);
   var _bn = slice.length;
   var bbU = _bb.up.slice(-_bn), bbM = _bb.mid.slice(-_bn), bbL = _bb.low.slice(-_bn);
+  var brkU = prices.map(function(p,i){ return (bbU[i]!=null && p>=bbU[i]) ? p : null; });
+  var brkL = prices.map(function(p,i){ return (bbL[i]!=null && p<=bbL[i]) ? p : null; });
   if (priceChart) priceChart.destroy();
   if (volumeChart) volumeChart.destroy();
 
@@ -826,7 +828,9 @@ function renderPriceCharts(periodDays) {
       },
       { label: 'BB 상단(20·2σ)', data: bbU, borderColor: 'rgba(167,139,250,0.5)', borderWidth: 1, borderDash: [4,3], pointRadius: 0, pointHoverRadius: 0, fill: '+2', backgroundColor: 'rgba(167,139,250,0.07)', tension: 0 },
       { label: 'BB 중심(20MA)', data: bbM, borderColor: 'rgba(251,191,36,0.75)', borderWidth: 1, pointRadius: 0, pointHoverRadius: 0, fill: false, tension: 0 },
-      { label: 'BB 하단', data: bbL, borderColor: 'rgba(167,139,250,0.5)', borderWidth: 1, borderDash: [4,3], pointRadius: 0, pointHoverRadius: 0, fill: false, tension: 0 }]
+      { label: 'BB 하단', data: bbL, borderColor: 'rgba(167,139,250,0.5)', borderWidth: 1, borderDash: [4,3], pointRadius: 0, pointHoverRadius: 0, fill: false, tension: 0 },
+      { label: '상단 돌파', data: brkU, showLine: false, pointStyle: 'circle', pointRadius: 4, pointHoverRadius: 6, backgroundColor: '#f87171', borderColor: '#ffffff', borderWidth: 1, fill: false },
+      { label: '하단 이탈', data: brkL, showLine: false, pointStyle: 'circle', pointRadius: 4, pointHoverRadius: 6, backgroundColor: '#60a5fa', borderColor: '#ffffff', borderWidth: 1, fill: false }]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
