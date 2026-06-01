@@ -349,6 +349,7 @@
       </div>
     </div>
     <div class="chart-wrap tall"><canvas id="priceChart"></canvas></div>
+    <div style="font-size:11px;color:var(--muted);margin:6px 2px 0">📉 볼린저밴드(20기간 · 2σ): <span style="color:#a78bfa;font-weight:700">밴드</span> · <span style="color:#fbbf24;font-weight:700">20 이동평균</span></div>
     <div class="chart-wrap" style="height:120px;margin-top:8px"><canvas id="volumeChart"></canvas></div>
   </div>
 
@@ -773,6 +774,18 @@ new Chart(document.getElementById('sentimentChart'), {
 let priceChart = null;
 let volumeChart = null;
 const fmtKRW = v => v.toLocaleString('ko-KR');
+function computeBB(cl, p, k){
+  var up=[], mid=[], low=[];
+  for(var i=0;i<cl.length;i++){
+    if(i < p-1){ up.push(null); mid.push(null); low.push(null); continue; }
+    var s=0; for(var j=i-p+1;j<=i;j++){ s+=cl[j]; }
+    var m=s/p, v=0;
+    for(var j2=i-p+1;j2<=i;j2++){ var d=cl[j2]-m; v+=d*d; }
+    var sd=Math.sqrt(v/p);
+    mid.push(m); up.push(m+k*sd); low.push(m-k*sd);
+  }
+  return { up:up, mid:mid, low:low };
+}
 const fmtVolM = v => v >= 1e6 ? (v/1e6).toFixed(1) + 'M' : (v/1e3).toFixed(0) + 'K';
 
 function renderPriceCharts(periodWeeks) {
@@ -785,6 +798,10 @@ function renderPriceCharts(periodWeeks) {
 
   const tickStep = Math.max(1, Math.floor(slice.length / 8));
 
+  var _cl = data.map(function(r){ return r[1]; });
+  var _bb = computeBB(_cl, 20, 2);
+  var _bn = slice.length;
+  var bbU = _bb.up.slice(-_bn), bbM = _bb.mid.slice(-_bn), bbL = _bb.low.slice(-_bn);
   if (priceChart) priceChart.destroy();
   if (volumeChart) volumeChart.destroy();
 
@@ -802,7 +819,10 @@ function renderPriceCharts(periodWeeks) {
         pointHoverRadius: 4,
         fill: true,
         tension: 0.15
-      }]
+      },
+      { label: 'BB 상단(20·2σ)', data: bbU, borderColor: 'rgba(167,139,250,0.5)', borderWidth: 1, borderDash: [4,3], pointRadius: 0, pointHoverRadius: 0, fill: '+2', backgroundColor: 'rgba(167,139,250,0.07)', tension: 0 },
+      { label: 'BB 중심(20MA)', data: bbM, borderColor: 'rgba(251,191,36,0.75)', borderWidth: 1, pointRadius: 0, pointHoverRadius: 0, fill: false, tension: 0 },
+      { label: 'BB 하단', data: bbL, borderColor: 'rgba(167,139,250,0.5)', borderWidth: 1, borderDash: [4,3], pointRadius: 0, pointHoverRadius: 0, fill: false, tension: 0 }]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
@@ -814,7 +834,7 @@ function renderPriceCharts(periodWeeks) {
           borderColor: '#252c3b',
           borderWidth: 1,
           padding: 10,
-          callbacks: { label: c => '종가: ' + fmtKRW(c.parsed.y) + '원' }
+          callbacks: { label: function(c){ return (c.dataset.label||'') + ': ' + fmtKRW(c.parsed.y) + '원'; } }
         }
       },
       scales: {
