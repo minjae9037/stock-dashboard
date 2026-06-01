@@ -58,8 +58,9 @@
   .chip.on{color:#fff;border-color:transparent}
   .chip.all.on{background:var(--primary)}
   .chip.buy.on{background:var(--buy)}
-  .chip.buycond.on{background:var(--buy)}
+  .chip.condbuy.on{background:var(--buy)}
   .chip.hold.on{background:var(--hold)}
+  .chip.condhold.on{background:var(--hold)}
   .chip.sell.on{background:var(--sell)}
   .chip .n{opacity:.7;font-weight:600;margin-left:4px}
 
@@ -85,6 +86,7 @@
   .pill.hold{background:rgba(209,138,4,0.15);color:var(--hold)}
   .pill.sell{background:rgba(224,85,106,0.15);color:var(--sell)}
   .pill.buycond{background:rgba(14,166,114,0.1);color:var(--buy);border:1px dashed currentColor;padding:3px 9px}
+  .pill.holdcond{background:rgba(209,138,4,0.1);color:var(--hold);border:1px dashed currentColor;padding:3px 9px}
   .meta{display:flex;align-items:center;gap:7px;margin-top:11px;font-size:12px;color:var(--muted);flex-wrap:wrap}
   .tag{background:rgba(96,165,250,0.13);color:var(--primary);font-family:'SF Mono','Menlo',monospace;padding:2px 8px;border-radius:6px;font-weight:700}
   .sector{color:var(--muted)}
@@ -134,8 +136,9 @@
   <div class="filters" id="filters">
     <button class="chip all on" data-f="ALL" onclick="setFilter('ALL')">전체 <span class="n" id="cnt-ALL"></span></button>
     <button class="chip buy" data-f="BUY" onclick="setFilter('BUY')">BUY <span class="n" id="cnt-BUY"></span></button>
-    <button class="chip buycond" data-f="COND" onclick="setFilter('COND')">조건부 <span class="n" id="cnt-COND"></span></button>
+    <button class="chip condbuy" data-f="CONDBUY" onclick="setFilter('CONDBUY')">조건부 BUY <span class="n" id="cnt-CONDBUY"></span></button>
     <button class="chip hold" data-f="HOLD" onclick="setFilter('HOLD')">HOLD <span class="n" id="cnt-HOLD"></span></button>
+    <button class="chip condhold" data-f="CONDHOLD" onclick="setFilter('CONDHOLD')">조건부 HOLD <span class="n" id="cnt-CONDHOLD"></span></button>
     <button class="chip sell" data-f="SELL" onclick="setFilter('SELL')">SELL <span class="n" id="cnt-SELL"></span></button>
   </div>
   <div class="hint" id="hint"></div>
@@ -163,7 +166,9 @@ var filterV = 'ALL';
 var liveMap = {}; // code -> live price (성공 시)
 
 function bucket(v){
-  if((v.grade||'').indexOf('조건부') >= 0) return 'COND';
+  var cond = (v.grade||'').indexOf('조건부') >= 0;
+  if(cond && v.verdict==='HOLD') return 'CONDHOLD';
+  if(cond) return 'CONDBUY';   // 조건부 + (BUY 또는 미표기) → 조건부 BUY
   if(v.verdict==='BUY') return 'BUY';
   if(v.verdict==='SELL') return 'SELL';
   if(v.verdict==='HOLD') return 'HOLD';
@@ -174,7 +179,9 @@ var fmt = function(n){ return Number(n).toLocaleString('ko-KR'); };
 var fmtDate = function(d){ return (d||'').replace(/-/g,'.') + '.'; };  // 2026-06-01 -> 2026.06.01.
 
 function pillClass(v){
-  if((v.grade||'').indexOf('조건부') >= 0) return 'buycond';
+  var cond = (v.grade||'').indexOf('조건부') >= 0;
+  if(cond && v.verdict==='HOLD') return 'holdcond';
+  if(cond) return 'buycond';
   if(v.verdict==='BUY') return 'buy';
   if(v.verdict==='SELL') return 'sell';
   return 'hold';
@@ -266,9 +273,9 @@ function setFilter(f){
   render();
 }
 function updateChipCounts(){
-  var c = {ALL:DATA.length, BUY:0, COND:0, HOLD:0, SELL:0};
+  var c = {ALL:DATA.length, BUY:0, CONDBUY:0, HOLD:0, CONDHOLD:0, SELL:0};
   DATA.forEach(function(v){ c[bucket(v)]++; });
-  ['ALL','BUY','COND','HOLD','SELL'].forEach(function(k){
+  ['ALL','BUY','CONDBUY','HOLD','CONDHOLD','SELL'].forEach(function(k){
     var el=document.getElementById('cnt-'+k); if(el) el.textContent=c[k];
   });
 }
