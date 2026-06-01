@@ -57,6 +57,8 @@
   .topbar-r{display:flex;align-items:center;gap:10px}
   .backbtn{display:inline-flex;align-items:center;gap:5px;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:99px;padding:8px 16px;font-size:13px;font-weight:700;text-decoration:none;box-shadow:var(--shadow);transition:transform .15s ease}
   .backbtn:hover{transform:translateX(-3px);border-color:var(--primary)}
+  .recbtn{display:inline-flex;align-items:center;gap:5px;background:var(--primary);color:#fff;border:1px solid var(--primary);border-radius:99px;padding:8px 15px;font-size:13px;font-weight:700;text-decoration:none;box-shadow:var(--shadow);transition:transform .15s ease;white-space:nowrap}
+  .recbtn:hover{transform:translateY(-1px);opacity:.92}
   .h-right{text-align:right}
   .price{font-size:34px;font-weight:800;letter-spacing:-0.02em}
   .price-meta{font-size:13px;color:var(--muted);margin-top:6px}
@@ -239,6 +241,7 @@
   <div class="topbar">
     <a class="brand" href="../">📊 Stock Dashboard</a>
     <div class="topbar-r">
+      <a class="recbtn" href="https://minjae9037.github.io/stock-recommend/">🚀 추천</a>
       <button class="theme-toggle" onclick="toggleTheme()"><span id="themeIcon">🌙</span> <span id="themeLabel">다크</span></button>
       <a class="backbtn" href="../">‹ 메인으로</a>
     </div>
