@@ -1,11 +1,121 @@
-<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1'>
-<title>Stock Dashboard</title><style>
-*{margin:0;box-sizing:border-box}body{background:#0B0F17;color:#E8EDF4;font-family:'Pretendard',-apple-system,sans-serif;padding:40px 20px}
-.wrap{max-width:760px;margin:0 auto}h1{font-size:24px;font-weight:800;margin-bottom:6px}.sub{color:#6B7686;font-size:13px;margin-bottom:28px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
-.card{display:block;background:#141A24;border:1px solid #262F3D;border-radius:14px;padding:20px;text-decoration:none;color:inherit;transition:.15s}
-.card:hover{border-color:#5BA8FF;transform:translateY(-2px)}.nm{font-size:18px;font-weight:800;margin-bottom:4px}.cd{font-family:monospace;color:#6B7686;font-size:13px}
-.foot{color:#6B7686;font-size:11px;margin-top:30px;line-height:1.7;border-top:1px solid #262F3D;padding-top:16px}
-</style></head><body><div class='wrap'><h1>📊 Stock Dashboard</h1><div class='sub'>종목별 투자 판단 대시보드 · 카드를 누르면 상세로 이동</div>
-<div class='grid'><a class='card' href='./000660/'><div class='nm'>SK하이닉스</div><div class='cd'>000660</div></a><a class='card' href='./005930/'><div class='nm'>삼성전자</div><div class='cd'>005930</div></a><a class='card' href='./005960/'><div class='nm'>동부건설</div><div class='cd'>005960</div></a></div>
-<div class='foot'>⚠️ 정보 제공물이며 투자 권유가 아닙니다. 과거·지연 데이터 기반. 투자 책임은 이용자 본인에게 있습니다.</div></div></body></html>
+<!DOCTYPE html>
+<html lang="ko" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Stock Dashboard — 투자 판단 대시보드</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" />
+<link rel="stylesheet" as="style" crossorigin
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
+<style>
+  :root{
+    --bg:#0b0f17; --card:#161b27; --card-2:#1c2230; --border:#252c3b;
+    --text:#e6edf3; --muted:#8b97a8;
+    --buy:#22d3a5; --sell:#f87171; --hold:#fbbf24; --primary:#60a5fa;
+    --shadow:0 2px 10px rgba(0,0,0,0.25);
+  }
+  :root[data-theme="light"]{
+    --bg:#f4f6fb; --card:#ffffff; --card-2:#f4f7fc; --border:#e1e7f0;
+    --text:#1b2330; --muted:#5b6675;
+    --buy:#0ea672; --sell:#e0556a; --hold:#d18a04; --primary:#3b82f6;
+    --shadow:0 2px 12px rgba(30,50,90,0.08);
+  }
+  *{margin:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--text);min-height:100vh;
+    font-family:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;padding:48px 20px}
+  .wrap{max-width:920px;margin:0 auto}
+  .top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:6px}
+  h1{font-size:26px;font-weight:800;letter-spacing:-0.02em}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:28px}
+  .theme-toggle{background:var(--card);border:1px solid var(--border);color:var(--text);
+    border-radius:99px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;
+    font-family:inherit;display:flex;align-items:center;gap:6px;box-shadow:var(--shadow);
+    transition:transform .15s ease;white-space:nowrap}
+  .theme-toggle:hover{transform:translateY(-1px)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+  .card{display:block;background:var(--card);border:1px solid var(--border);border-radius:16px;
+    padding:20px;text-decoration:none;color:inherit;transition:.15s;box-shadow:var(--shadow)}
+  .card:hover{border-color:var(--primary);transform:translateY(-3px)}
+  .card .row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .nm{font-size:19px;font-weight:800;letter-spacing:-0.01em}
+  .cd{font-family:'SF Mono','Menlo',monospace;color:var(--muted);font-size:12.5px;margin-top:3px}
+  .pill{flex-shrink:0;padding:4px 10px;border-radius:99px;font-size:11.5px;font-weight:700;letter-spacing:0.02em}
+  .pill.buy{background:rgba(14,166,114,0.15);color:var(--buy)}
+  .pill.hold{background:rgba(209,138,4,0.15);color:var(--hold)}
+  .pill.sell{background:rgba(224,85,106,0.15);color:var(--sell)}
+  .pill.prev{background:rgba(120,140,180,0.16);color:var(--muted)}
+  .meta{display:flex;align-items:center;gap:8px;margin-top:14px;font-size:12px;color:var(--muted)}
+  .date{font-family:'SF Mono','Menlo',monospace;background:rgba(96,165,250,0.14);color:var(--primary);
+    padding:2px 8px;border-radius:6px;font-weight:700}
+  .sector{color:var(--muted)}
+  .foot{color:var(--muted);font-size:11.5px;margin-top:32px;line-height:1.7;
+    border-top:1px solid var(--border);padding-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h1>📊 Stock Dashboard</h1>
+      <div class="sub">종목별 투자 판단 대시보드 · 카드를 누르면 상세로 이동 · 최근 조사일 표기</div>
+    </div>
+    <button class="theme-toggle" onclick="toggleTheme()"><span id="themeIcon">🌙</span> <span id="themeLabel">다크</span></button>
+  </div>
+
+  <div class="grid">
+    <a class="card" href="./005930/">
+      <div class="row"><div><div class="nm">삼성전자</div><div class="cd">005930 · KOSPI</div></div><span class="pill buy">BUY 보통</span></div>
+      <div class="meta"><span class="date">📅 26.06.01.</span><span class="sector">반도체 · HBM</span></div>
+    </a>
+    <a class="card" href="./066570/">
+      <div class="row"><div><div class="nm">LG전자</div><div class="cd">066570 · KOSPI</div></div><span class="pill hold">HOLD</span></div>
+      <div class="meta"><span class="date">📅 26.06.01.</span><span class="sector">가전 · 전장 · 로봇</span></div>
+    </a>
+    <a class="card" href="./034220/">
+      <div class="row"><div><div class="nm">LG디스플레이</div><div class="cd">034220 · KOSPI</div></div><span class="pill buy">BUY 보통</span></div>
+      <div class="meta"><span class="date">📅 26.06.01.</span><span class="sector">OLED · 애플 패널</span></div>
+    </a>
+    <a class="card" href="./064400/">
+      <div class="row"><div><div class="nm">LG CNS</div><div class="cd">064400 · KOSPI</div></div><span class="pill hold">HOLD</span></div>
+      <div class="meta"><span class="date">📅 26.06.01.</span><span class="sector">AI/DX · 클라우드</span></div>
+    </a>
+    <a class="card" href="./022100/">
+      <div class="row"><div><div class="nm">포스코DX</div><div class="cd">022100 · KOSPI</div></div><span class="pill sell">SELL</span></div>
+      <div class="meta"><span class="date">📅 26.06.01.</span><span class="sector">스마트팩토리 · 로봇</span></div>
+    </a>
+    <a class="card" href="./000660/">
+      <div class="row"><div><div class="nm">SK하이닉스</div><div class="cd">000660 · KOSPI</div></div><span class="pill prev">이전 분석</span></div>
+      <div class="meta"><span class="date">📅 26.05.25.</span><span class="sector">반도체 · 메모리</span></div>
+    </a>
+    <a class="card" href="./005960/">
+      <div class="row"><div><div class="nm">동부건설</div><div class="cd">005960 · KOSPI</div></div><span class="pill prev">이전 분석</span></div>
+      <div class="meta"><span class="date">📅 26.05.25.</span><span class="sector">건설 · 토목/건축</span></div>
+    </a>
+  </div>
+
+  <div class="foot">
+    ⚠️ 정보 제공물이며 투자 권유가 아닙니다. 과거·지연 데이터 기반이며 자동매매를 수행하지 않습니다. 투자 책임은 이용자 본인에게 있습니다.<br>
+    판정 배지(BUY/HOLD/SELL)는 본 시스템 룰 기반 통합 점수이며 시장 컨센서스가 아닙니다. 데이터: DART 전자공시 + 네이버 금융(2026 기준).
+  </div>
+</div>
+
+<script>
+function curTheme(){ return document.documentElement.getAttribute('data-theme') || 'light'; }
+(function(){ let t='light'; try{ t=localStorage.getItem('stock-theme')||'light'; }catch(e){} document.documentElement.setAttribute('data-theme',t); })();
+function syncToggleUI(){
+  var t=curTheme();
+  var icon=document.getElementById('themeIcon'), label=document.getElementById('themeLabel');
+  if(icon) icon.textContent = t==='light' ? '🌙' : '☀️';
+  if(label) label.textContent = t==='light' ? '다크' : '라이트';
+}
+function toggleTheme(){
+  var next = curTheme()==='light' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', next);
+  try{ localStorage.setItem('stock-theme', next); }catch(e){}
+  syncToggleUI();
+}
+syncToggleUI();
+</script>
+</body>
+</html>

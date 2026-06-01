@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" data-theme="light">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -16,7 +16,18 @@
     --buy:#22d3a5; --buy-dim:#0f3a30; --sell:#f87171; --hold:#fbbf24;
     --pos:#22d3a5; --neg:#f87171; --neu:#8b97a8;
     --primary:#60a5fa; --accent:#a78bfa;
+    --shadow:0 2px 10px rgba(0,0,0,0.25);
   }
+  :root[data-theme="light"]{
+    --bg:#f4f6fb; --bg-2:#e9eef6; --card:#ffffff; --card-2:#f4f7fc;
+    --border:#e1e7f0; --text:#1b2330; --muted:#5b6675;
+    --buy:#0ea672; --sell:#e0556a; --hold:#d18a04;
+    --pos:#0ea672; --neg:#e0556a;
+    --primary:#3b82f6; --accent:#8b5cf6;
+    --shadow:0 2px 12px rgba(30,50,90,0.08);
+  }
+  :root[data-theme="light"] .header{background:linear-gradient(135deg,#ffffff 0%,#eef3fb 100%)}
+  :root[data-theme="light"] .footer{background:#fbfcfe}
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
     font-family:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
@@ -29,9 +40,17 @@
     border:1px solid var(--border);border-radius:18px;margin-bottom:20px}
   .h-left h1{margin:0;font-size:32px;font-weight:800;letter-spacing:-0.02em}
   .h-left .sub{color:var(--muted);font-size:14px;margin-top:4px}
-  .ticker-badge{display:inline-block;background:#21283a;color:#9aa6bf;
+  .ticker-badge{display:inline-block;background:rgba(120,140,180,0.18);color:var(--muted);
     padding:3px 10px;border-radius:6px;font-size:12px;margin-left:8px;font-weight:600;
     font-family:'SF Mono','Menlo',monospace}
+  .date-badge{display:inline-block;background:rgba(96,165,250,0.16);color:var(--primary);
+    padding:3px 10px;border-radius:6px;font-size:12px;margin-left:6px;font-weight:700;
+    font-family:'SF Mono','Menlo',monospace;vertical-align:2px}
+  .theme-toggle{position:fixed;top:16px;right:16px;z-index:100;background:var(--card);
+    border:1px solid var(--border);color:var(--text);border-radius:99px;padding:8px 14px;
+    font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;
+    gap:6px;box-shadow:var(--shadow);transition:transform .15s ease}
+  .theme-toggle:hover{transform:translateY(-1px)}
   .h-right{text-align:right}
   .price{font-size:34px;font-weight:800;letter-spacing:-0.02em}
   .price-meta{font-size:13px;color:var(--muted);margin-top:6px}
@@ -202,12 +221,13 @@
 </style>
 </head>
 <body>
+<button class="theme-toggle" onclick="toggleTheme()"><span id="themeIcon">🌙</span> <span id="themeLabel">다크</span></button>
 <div class="wrap">
 
   <!-- HEADER -->
   <header class="header">
     <div class="h-left">
-      <h1>동부건설 <span class="ticker-badge">005960 · KOSPI</span></h1>
+      <h1>동부건설 <span class="ticker-badge">005960 · KOSPI</span> <span class="date-badge">📅 26.05.25.</span></h1>
       <div class="sub">건설 / 토목·건축·플랜트 (센트레빌) · 분석 기준일 2026-05-25</div>
     </div>
     <div class="h-right">
@@ -566,8 +586,57 @@
 </div>
 
 <script>
-Chart.defaults.color = '#8b97a8';
-Chart.defaults.borderColor = '#252c3b';
+// ===== THEME SYSTEM (light default) =====
+const THEMES = {
+  light: { tick:'#5b6675', grid:'#e6eaf1', track:'#e1e7f0', tipBg:'#1b2330', tipBorder:'#1b2330' },
+  dark:  { tick:'#8b97a8', grid:'#1f2533', track:'#252c3b', tipBg:'#161b27', tipBorder:'#252c3b' }
+};
+function curTheme(){ return document.documentElement.getAttribute('data-theme') || 'light'; }
+(function initTheme(){
+  let t = 'light';
+  try { t = localStorage.getItem('stock-theme') || 'light'; } catch(e){}
+  document.documentElement.setAttribute('data-theme', t);
+})();
+function syncToggleUI(){
+  const t = curTheme();
+  const icon = document.getElementById('themeIcon'), label = document.getElementById('themeLabel');
+  if(icon) icon.textContent = t === 'light' ? '🌙' : '☀️';
+  if(label) label.textContent = t === 'light' ? '다크' : '라이트';
+}
+function applyChartTheme(){
+  const T = THEMES[curTheme()];
+  Chart.defaults.color = T.tick;
+  Chart.defaults.borderColor = T.grid;
+  const insts = Chart.instances || {};
+  Object.values(insts).forEach(ch => {
+    try {
+      if (ch.config && ch.config.type === 'doughnut') {
+        const ds = ch.data.datasets[0];
+        if (ds && Array.isArray(ds.backgroundColor) && ds.backgroundColor.length >= 2) ds.backgroundColor[1] = T.track;
+      }
+      const sc = ch.options.scales || {};
+      Object.values(sc).forEach(s => {
+        if (s.grid) s.grid.color = T.grid;
+        if (s.ticks) s.ticks.color = T.tick;
+      });
+      const pl = ch.options.plugins || {};
+      if (pl.tooltip){ pl.tooltip.backgroundColor = T.tipBg; pl.tooltip.borderColor = T.tipBorder; pl.tooltip.titleColor='#fff'; pl.tooltip.bodyColor='#e6edf3'; }
+      if (pl.legend && pl.legend.labels) pl.legend.labels.color = T.tick;
+      ch.update('none');
+    } catch(e){}
+  });
+}
+function toggleTheme(){
+  const next = curTheme() === 'light' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', next);
+  try { localStorage.setItem('stock-theme', next); } catch(e){}
+  syncToggleUI();
+  applyChartTheme();
+}
+syncToggleUI();
+
+Chart.defaults.color = THEMES[curTheme()].tick;
+Chart.defaults.borderColor = THEMES[curTheme()].grid;
 Chart.defaults.font.family = "'Pretendard Variable', Pretendard, -apple-system, sans-serif";
 
 // Overall doughnut
@@ -798,6 +867,7 @@ document.querySelectorAll('.period-btn').forEach(btn => {
     document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     renderPriceCharts(parseInt(btn.dataset.period));
+    applyChartTheme();
   });
 });
 
@@ -869,6 +939,9 @@ new Chart(document.getElementById('forecastChart'), {
     }
   }
 });
+
+// apply theme colors to all charts after build
+applyChartTheme();
 </script>
 </body>
 </html>
