@@ -199,7 +199,7 @@
 
   <div class="foot">
     ⚠️ 정보 제공물이며 투자 권유가 아닙니다. 과거·지연 데이터 기반이며 자동매매를 수행하지 않습니다. 투자 책임은 이용자 본인에게 있습니다.<br>
-    <b>적중 추적</b>: 분석 시점 현재가와 비교한 등락 + 매수의견 방향성 평가. 현재가는 <b>배포 시점(서버) 기준</b>으로 매 배포(평일 자동)마다 갱신되며, 🔄 버튼으로 라이브 재시도(브라우저↔네이버 CORS 차단으로 실패 시 배포시점 값 유지). 판정 배지·점수는 본 시스템 룰 산식이며 시장 컨센서스가 아닙니다.
+    <b>적중 추적</b>: 분석 시점 현재가와 비교한 등락 + 매수의견 방향성 평가. 현재가는 <b>페이지 로드·새로고침(F5)·탭 복귀 시 자동으로 라이브 갱신</b>됩니다(공개 프록시 경유). 네이버↔github.io CORS 차단으로 갱신 실패 시 <b>배포 시점(서버) 값</b>(평일 자동 배포마다 갱신)을 유지하며, 🔄 버튼으로 수동 재시도할 수 있습니다. 판정 배지·점수는 본 시스템 룰 산식이며 시장 컨센서스가 아닙니다.
   </div>
 </div>
 
@@ -407,33 +407,76 @@ function renderMarket(){
   renderIndexHead(); renderSectors(); renderIndexChart();
 }
 
-// ===== 라이브 현재가(베스트 에포트, CORS 프록시) =====
-function naverUrl(code){ return 'https://m.stock.naver.com/api/stock/'+code+'/integration'; }
-function proxies(u){ return [ 'https://corsproxy.io/?url='+encodeURIComponent(u), 'https://api.allorigins.win/raw?url='+encodeURIComponent(u) ]; }
-function fetchLive(code){
-  var us = proxies(naverUrl(code));
+// ===== 라이브 현재가(자동 갱신: 로드·새로고침·탭 복귀 시) =====
+// 네이버가 github.io Origin을 CORS 차단 → 동작 확인된 공개 프록시 경유(베스트 에포트). 실패 시 배포시점 값 유지.
+function naverStockUrl(code){ return 'https://m.stock.naver.com/api/stock/'+code+'/integration'; }
+function naverIndexUrl(code){ return 'https://m.stock.naver.com/api/index/'+code+'/basic'; }
+function proxify(u){ return [
+  'https://api.codetabs.com/v1/proxy/?quest='+encodeURIComponent(u),
+  'https://api.allorigins.win/raw?url='+encodeURIComponent(u)
+]; }
+function fetchJson(u){
+  var us = proxify(u);
   function tryOne(i){
     if(i>=us.length) return Promise.reject();
     return fetch(us[i]).then(function(r){ if(!r.ok) throw 0; return r.json(); })
-      .then(function(d){
-        var cp = (d.dealTrendInfos && d.dealTrendInfos[0] && d.dealTrendInfos[0].closePrice) || d.closePrice;
-        var n = parseInt(String(cp).replace(/[^0-9]/g,''),10);
-        if(n>0) return n; throw 0;
-      }).catch(function(){ return tryOne(i+1); });
+      .catch(function(){ return tryOne(i+1); });
   }
   return tryOne(0);
 }
+function parsePrice(d){
+  var cp = (d.dealTrendInfos && d.dealTrendInfos[0] && d.dealTrendInfos[0].closePrice) || d.closePrice;
+  var n = parseInt(String(cp).replace(/[^0-9]/g,''),10);
+  return n>0 ? n : 0;
+}
+// 동시성 제한 풀(공개 프록시 rate-limit 회피)
+function runPool(items, worker, limit){
+  return new Promise(function(resolve){
+    var idx=0, active=0, done=0, n=items.length;
+    if(!n) return resolve();
+    function next(){
+      while(active<limit && idx<n){
+        var it=items[idx++]; active++;
+        worker(it).catch(function(){}).then(function(){
+          active--; done++;
+          if(done>=n) resolve(); else next();
+        });
+      }
+    }
+    next();
+  });
+}
+var liveBusy=false, lastLive=0;
 function refreshLive(){
-  var btn = document.getElementById('liveBtn'); btn.textContent='🔄 갱신 중…';
-  var ps = DATA.map(function(v){ return fetchLive(v.code).then(function(n){ liveMap[v.code]=n; }).catch(function(){}); });
-  Promise.all(ps).then(function(){ btn.textContent='🔄 현재가 갱신'; render(); });
+  if(liveBusy) return Promise.resolve();
+  liveBusy=true;
+  var btn=document.getElementById('liveBtn'); if(btn) btn.textContent='🔄 갱신 중…';
+  var stockJob = runPool(DATA, function(v){
+    return fetchJson(naverStockUrl(v.code)).then(function(d){ var n=parsePrice(d); if(n>0) liveMap[v.code]=n; });
+  }, 5);
+  var idxJob = MKT ? Promise.all(['KOSPI','KOSDAQ'].map(function(code){
+    var key=code.toLowerCase();
+    return fetchJson(naverIndexUrl(code)).then(function(d){
+      var val=parseFloat(String(d.closePrice).replace(/,/g,'')); var pct=parseFloat(d.fluctuationsRatio);
+      if(val>0 && MKT[key]){ MKT[key].value=val; if(!isNaN(pct)) MKT[key].changePct=pct; }
+    }).catch(function(){});
+  })) : Promise.resolve();
+  return Promise.all([stockJob, idxJob]).then(function(){
+    liveBusy=false; lastLive=Date.now();
+    if(btn) btn.textContent='🔄 현재가 갱신';
+    render(); renderIndexHead();
+  });
 }
 
 document.getElementById('q').addEventListener('input', render);
 render();
 renderMarket();
-// 로드 시 1회 베스트 에포트 라이브 시도(실패하면 조용히 배포시점 값 유지)
-setTimeout(refreshLive, 300);
+// 로드·새로고침(F5) 시 자동 현재가 갱신
+refreshLive();
+// 다른 탭 갔다 돌아올 때도 자동 갱신(60초 쓰로틀)
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState==='visible' && Date.now()-lastLive>60000){ refreshLive(); }
+});
 </script>
 </body>
 </html>
