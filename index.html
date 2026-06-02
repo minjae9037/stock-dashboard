@@ -8,6 +8,8 @@
 <link rel="stylesheet" as="style" crossorigin
       href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
 <script src="./verdicts.js"></script>
+<script src="./market.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
   :root{
     --bg:#0b0f17; --card:#161b27; --card-2:#1c2230; --border:#252c3b;
@@ -110,6 +112,35 @@
 
   .empty{color:var(--muted);font-size:14px;text-align:center;padding:50px 0}
   .foot{color:var(--muted);font-size:11.5px;margin-top:38px;line-height:1.7;border-top:1px solid var(--border);padding-top:18px}
+
+  /* ===== 시장 현황 (index) ===== */
+  .market{margin:18px 0 26px;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 16px 18px}
+  .mhead{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+  .mhead h2{font-size:16px;font-weight:800;margin:0;display:flex;align-items:center;gap:8px}
+  .mhead .masof{font-size:11px;color:var(--muted);font-weight:600}
+  .idxtabs{display:flex;gap:6px}
+  .itab{background:var(--card-2);border:1px solid var(--border);color:var(--muted);border-radius:99px;padding:5px 14px;font-size:12.5px;font-weight:700;cursor:pointer}
+  .itab.on{background:var(--primary);color:#fff;border-color:transparent}
+  .mgrid{display:grid;grid-template-columns:1.15fr 1fr;gap:16px}
+  @media(max-width:760px){ .mgrid{grid-template-columns:1fr} }
+  .mcard{background:var(--card-2);border:1px solid var(--border);border-radius:12px;padding:13px 14px}
+  .idxnow{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}
+  .idxnow .iv{font-size:24px;font-weight:800;letter-spacing:-0.01em}
+  .idxnow .ic{font-size:14px;font-weight:800}
+  .idxnow .il{font-size:12px;color:var(--muted);font-weight:700;margin-right:2px}
+  .up{color:#e0556a}    /* 한국식: 상승=빨강 */
+  .down{color:#3b82f6}  /* 하락=파랑 */
+  .flat{color:var(--muted)}
+  .mchart-wrap{position:relative;height:190px;margin-top:4px}
+  .mcap{font-size:10.5px;color:var(--muted);margin-top:7px}
+  .sechead{display:flex;align-items:center;justify-content:space-between;font-size:13px;margin-bottom:9px}
+  .sechead span{font-size:11px;color:var(--muted);font-weight:600}
+  .secgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;max-height:230px;overflow-y:auto;padding-right:3px}
+  @media(max-width:480px){ .secgrid{grid-template-columns:1fr} }
+  .sec{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 9px;border-radius:8px;border:1px solid var(--border);font-size:12px}
+  .sec .sn{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sec .sp{font-weight:800;flex-shrink:0;font-variant-numeric:tabular-nums}
+  .sec .sc{font-size:10px;color:var(--muted);flex-shrink:0;margin-left:2px}
 </style>
 </head>
 <body>
@@ -143,6 +174,27 @@
   </div>
   <div class="hint" id="hint"></div>
 
+  <section class="market" id="market">
+    <div class="mhead">
+      <h2>🧭 시장 현황 <span class="masof" id="masof"></span></h2>
+      <div class="idxtabs">
+        <button class="itab on" data-ix="kospi" onclick="setIndex('kospi')">코스피</button>
+        <button class="itab" data-ix="kosdaq" onclick="setIndex('kosdaq')">코스닥</button>
+      </div>
+    </div>
+    <div class="mgrid">
+      <div class="mcard">
+        <div class="idxnow" id="idxnow"></div>
+        <div class="mchart-wrap"><canvas id="idxChart"></canvas></div>
+        <div class="mcap">최근 1년 지수 추이(일봉) · 네이버 금융</div>
+      </div>
+      <div class="mcard">
+        <div class="sechead"><b>📊 업종별 등락</b><span id="secsum"></span></div>
+        <div class="secgrid" id="secgrid"></div>
+      </div>
+    </div>
+  </section>
+
   <div id="list"></div>
 
   <div class="foot">
@@ -156,7 +208,7 @@
 function curTheme(){ return document.documentElement.getAttribute('data-theme') || 'light'; }
 (function(){ let t='light'; try{ t=localStorage.getItem('stock-theme')||'light'; }catch(e){} document.documentElement.setAttribute('data-theme',t); })();
 function syncToggleUI(){ var t=curTheme(); var i=document.getElementById('themeIcon'),l=document.getElementById('themeLabel'); if(i)i.textContent=t==='light'?'🌙':'☀️'; if(l)l.textContent=t==='light'?'다크':'라이트'; }
-function toggleTheme(){ var n=curTheme()==='light'?'dark':'light'; document.documentElement.setAttribute('data-theme',n); try{localStorage.setItem('stock-theme',n);}catch(e){} syncToggleUI(); }
+function toggleTheme(){ var n=curTheme()==='light'?'dark':'light'; document.documentElement.setAttribute('data-theme',n); try{localStorage.setItem('stock-theme',n);}catch(e){} syncToggleUI(); if(typeof renderIndexChart==='function'){ renderIndexChart(); } }
 syncToggleUI();
 
 // ===== DATA =====
@@ -280,6 +332,81 @@ function updateChipCounts(){
   });
 }
 
+// ===== 시장 현황 (index) =====
+var MKT = (typeof MARKET !== 'undefined') ? MARKET : null;
+var curIndex = 'kospi';
+var idxChart = null;
+function cssVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim() || '#888'; }
+function signCls(p){ return p>0.005 ? 'up' : (p<-0.005 ? 'down' : 'flat'); }
+function signTxt(p){ var s=p>0?'▲':(p<0?'▼':'-'); return s+' '+Math.abs(p).toFixed(2)+'%'; }
+
+function renderIndexHead(){
+  if(!MKT) return;
+  var d = MKT[curIndex]; if(!d) return;
+  document.getElementById('idxnow').innerHTML =
+    '<span class="il">'+(curIndex==='kospi'?'코스피':'코스닥')+'</span>'
+    + '<span class="iv">'+Number(d.value).toLocaleString('ko-KR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</span>'
+    + '<span class="ic '+signCls(d.changePct)+'">'+signTxt(d.changePct)+'</span>';
+}
+
+function renderIndexChart(){
+  if(!MKT || typeof Chart==='undefined') return;
+  var d = MKT[curIndex]; if(!d || !d.ohlc || !d.ohlc.length) return;
+  var labels = d.ohlc.map(function(p){ return p[0]; });
+  var vals = d.ohlc.map(function(p){ return p[1]; });
+  var rise = vals[vals.length-1] >= vals[0];
+  var line = rise ? '#e0556a' : '#3b82f6';
+  var ctx = document.getElementById('idxChart').getContext('2d');
+  var grad = ctx.createLinearGradient(0,0,0,190);
+  grad.addColorStop(0, rise?'rgba(224,85,106,0.22)':'rgba(59,130,246,0.22)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  if(idxChart) idxChart.destroy();
+  idxChart = new Chart(ctx, {
+    type:'line',
+    data:{ labels:labels, datasets:[{ label:(curIndex==='kospi'?'코스피':'코스닥'), data:vals, borderColor:line, backgroundColor:grad, borderWidth:1.6, pointRadius:0, pointHoverRadius:4, fill:true, tension:0.12 }]},
+    options:{ responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false},
+      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:function(c){ return c.parsed.y.toLocaleString('ko-KR',{maximumFractionDigits:2}); } } } },
+      scales:{
+        x:{ ticks:{ maxTicksLimit:6, color:cssVar('--muted'), font:{size:10} }, grid:{display:false} },
+        y:{ ticks:{ color:cssVar('--muted'), font:{size:10}, callback:function(v){ return Number(v).toLocaleString('ko-KR'); } }, grid:{ color:cssVar('--border') } }
+      }
+    }
+  });
+}
+
+function renderSectors(){
+  if(!MKT || !MKT.sectors) return;
+  var s = MKT.sectors;
+  var up = s.filter(function(x){return x.changePct>0;}).length;
+  var dn = s.filter(function(x){return x.changePct<0;}).length;
+  document.getElementById('secsum').textContent = '상승 '+up+' · 하락 '+dn+' / '+s.length+'개 업종';
+  function bg(p){
+    var a = Math.min(0.18, 0.04+Math.abs(p)*0.05).toFixed(3);
+    if(p>0) return 'rgba(224,85,106,'+a+')';
+    if(p<0) return 'rgba(59,130,246,'+a+')';
+    return 'transparent';
+  }
+  document.getElementById('secgrid').innerHTML = s.map(function(x){
+    return '<div class="sec" style="background:'+bg(x.changePct)+'">'
+      + '<span class="sn" title="'+x.name+'">'+x.name+'</span>'
+      + '<span><span class="sp '+signCls(x.changePct)+'">'+(x.changePct>0?'+':'')+x.changePct.toFixed(2)+'%</span>'
+      + '<span class="sc">'+x.rise+'↑'+x.fall+'↓</span></span></div>';
+  }).join('');
+}
+
+function setIndex(ix){
+  curIndex = ix;
+  var tabs = document.querySelectorAll('.itab');
+  for(var i=0;i<tabs.length;i++){ tabs[i].classList.toggle('on', tabs[i].getAttribute('data-ix')===ix); }
+  renderIndexHead(); renderIndexChart();
+}
+
+function renderMarket(){
+  if(!MKT){ var m=document.getElementById('market'); if(m) m.style.display='none'; return; }
+  document.getElementById('masof').textContent = '기준 '+MKT.asOf;
+  renderIndexHead(); renderSectors(); renderIndexChart();
+}
+
 // ===== 라이브 현재가(베스트 에포트, CORS 프록시) =====
 function naverUrl(code){ return 'https://m.stock.naver.com/api/stock/'+code+'/integration'; }
 function proxies(u){ return [ 'https://corsproxy.io/?url='+encodeURIComponent(u), 'https://api.allorigins.win/raw?url='+encodeURIComponent(u) ]; }
@@ -304,6 +431,7 @@ function refreshLive(){
 
 document.getElementById('q').addEventListener('input', render);
 render();
+renderMarket();
 // 로드 시 1회 베스트 에포트 라이브 시도(실패하면 조용히 배포시점 값 유지)
 setTimeout(refreshLive, 300);
 </script>
