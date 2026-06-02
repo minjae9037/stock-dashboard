@@ -94,10 +94,17 @@
   .sector{color:var(--muted)}
 
   .track{margin-top:13px;padding-top:12px;border-top:1px dashed var(--border)}
-  .prices{display:flex;align-items:baseline;gap:8px;font-size:13px;font-variant-numeric:tabular-nums}
-  .prices .a{color:var(--muted)}
-  .prices .arr{color:var(--muted)}
-  .prices .n{font-weight:800;font-size:15px}
+  .prices{display:flex;align-items:baseline;gap:8px;font-size:13px;font-variant-numeric:tabular-nums;flex-wrap:wrap}
+  .prices .now{font-weight:800;font-size:16px;display:inline-flex;align-items:center;gap:5px}
+  .prices .swap{color:var(--muted);font-size:14px}
+  .prices .ana{color:var(--muted);font-size:12.5px}
+  .livetag{font-size:9px;font-weight:800;letter-spacing:.04em;padding:1px 5px;border-radius:5px;background:var(--card-2);color:var(--muted);border:1px solid var(--border)}
+  .livetag.on{background:rgba(34,211,165,0.16);color:var(--buy);border-color:transparent}
+  .ret{margin-top:7px;display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:800;font-variant-numeric:tabular-nums}
+  .ret .dot{color:var(--muted);font-weight:400}
+  @keyframes pxflash{0%{background:rgba(96,165,250,0.38)}100%{background:transparent}}
+  .prices .now.flash{animation:pxflash 1s ease-out;border-radius:5px;padding:0 3px;margin:0 -3px}
+  .livestamp{font-size:11px;color:var(--muted);align-self:center}
   .result{margin-top:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
   .verdictbox{font-size:12.5px;font-weight:700}
   .verdictbox.hit{color:var(--buy)}
@@ -186,6 +193,7 @@
     </div>
     <button class="btn" id="sortBtn" onclick="toggleSort()">🗓 최신순 ▼</button>
     <button class="btn" id="liveBtn" onclick="refreshLive()">🔄 현재가 갱신</button>
+    <span class="livestamp" id="liveStamp">현재가 자동 갱신 대기…</span>
   </div>
   <div class="filters" id="filters">
     <button class="chip all on" data-f="ALL" onclick="setFilter('ALL')">전체 <span class="n" id="cnt-ALL"></span></button>
@@ -295,21 +303,34 @@ function calcResult(v, now){
   return { cls:'hit', txt:'✅ 방어 ('+pct.toFixed(1)+'% 하락 회피)' };
 }
 
+var priceSeen = {};   // 직전 렌더 현재가(변동 시 플래시 트리거)
 function cardHTML(v){
   var now = liveMap[v.code] || v.nowPrice;
+  var isLive = !!liveMap[v.code];
   var res = calcResult(v, now);
-  var changed = now !== v.price;
+  var ret = (now / v.price - 1) * 100;
+  var gap = now - v.price;
+  var cls = ret > 0.005 ? 'up' : (ret < -0.005 ? 'down' : 'flat');   // 한국식: 상승=빨강·하락=파랑
+  var flash = (priceSeen[v.code] !== undefined && priceSeen[v.code] !== now) ? ' flash' : '';
+  priceSeen[v.code] = now;
   var tgt = (v.target && v.target > 0) ? '<span class="tgt">목표가 대비 '+Math.round(now/v.target*100)+'%</span>' : '';
-  var live = liveMap[v.code] ? ' islive' : '';
   return ''
     + '<a class="card" href="./'+v.code+'/">'
     +   '<div class="crow"><div><div class="nm">'+v.name+'</div><div class="cd">'+v.code+' · KOSPI</div></div>'
     +     '<span class="pill '+pillClass(v)+'">'+(v.grade||v.verdict)+'</span></div>'
     +   '<div class="meta"><span class="tag">📅 '+fmtDate(v.date)+'</span><span class="tag">⏰ '+(v.time||'--:--')+'</span><span class="sector">'+(v.sector||'')+'</span></div>'
     +   '<div class="track">'
-    +     '<div class="prices"><span class="a">분석가 '+fmt(v.price)+'</span><span class="arr">→</span><span class="n">'+fmt(now)+'원</span></div>'
+    +     '<div class="prices">'
+    +       '<span class="now '+cls+flash+'">현재가 '+fmt(now)+'<span class="livetag'+(isLive?' on':'')+'">'+(isLive?'LIVE':'배포시점')+'</span></span>'
+    +       '<span class="swap">↔</span>'
+    +       '<span class="ana">분석가 '+fmt(v.price)+'</span>'
+    +     '</div>'
+    +     '<div class="ret">'
+    +       '<span class="'+cls+'">수익률 '+(ret>=0?'+':'')+ret.toFixed(2)+'%</span>'
+    +       '<span class="dot">·</span>'
+    +       '<span class="'+cls+'">갭 '+(gap>=0?'+':'')+fmt(gap)+'원</span>'
+    +     '</div>'
     +     '<div class="result"><span class="verdictbox '+res.cls+'">'+res.txt+'</span>'+tgt+'</div>'
-    +     '<div class="asof'+live+'"><span class="livedot">● LIVE</span><span class="stamp">기준 '+(v.nowAsOf||v.date)+' (배포시점)</span></div>'
     +   '</div>'
     + '</a>';
 }
@@ -541,6 +562,7 @@ function refreshLive(){
   if(liveBusy) return Promise.resolve();
   liveBusy=true;
   var btn=document.getElementById('liveBtn'); if(btn) btn.textContent='🔄 갱신 중…';
+  var st0=document.getElementById('liveStamp'); if(st0) st0.textContent='현재가 갱신 중…';
   var stockJob = runPool(DATA, function(v){
     return fetchJson(naverStockUrl(v.code)).then(function(d){ var n=parsePrice(d); if(n>0) liveMap[v.code]=n; });
   }, 5);
@@ -555,6 +577,12 @@ function refreshLive(){
     liveBusy=false; lastLive=Date.now();
     if(btn) btn.textContent='🔄 현재가 갱신';
     render(); renderIndexHead();
+    var live=Object.keys(liveMap).length;
+    var st=document.getElementById('liveStamp');
+    if(st){
+      var d=new Date(), p=function(x){return ('0'+x).slice(-2);};
+      st.textContent = live ? ('실시간 갱신 '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds())+' · '+live+'종목') : '라이브 실패 — 배포시점 값 표시';
+    }
   });
 }
 
@@ -567,6 +595,8 @@ refreshLive();
 document.addEventListener('visibilitychange', function(){
   if(document.visibilityState==='visible' && Date.now()-lastLive>60000){ refreshLive(); }
 });
+// 실시간: 탭이 보이는 동안 30초마다 현재가·수익률 자동 갱신
+setInterval(function(){ if(document.visibilityState==='visible'){ refreshLive(); } }, 30000);
 </script>
 </body>
 </html>
