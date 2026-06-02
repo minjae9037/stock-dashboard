@@ -520,7 +520,7 @@ document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeSect
 
 // ===== 라이브 현재가(자동 갱신: 로드·새로고침·탭 복귀 시) =====
 // 네이버가 github.io Origin을 CORS 차단 → 동작 확인된 공개 프록시 경유(베스트 에포트). 실패 시 배포시점 값 유지.
-function naverStockUrl(code){ return 'https://m.stock.naver.com/api/stock/'+code+'/integration'; }
+function naverStockUrl(code){ return 'https://m.stock.naver.com/api/stock/'+code+'/basic'; }  // /basic=실시간 현재가(/integration의 dealTrendInfos는 전일 일봉이라 분석가와 동일해짐)
 function naverIndexUrl(code){ return 'https://m.stock.naver.com/api/index/'+code+'/basic'; }
 function proxify(u){ return [
   'https://api.codetabs.com/v1/proxy/?quest='+encodeURIComponent(u),
@@ -536,8 +536,8 @@ function fetchJson(u){
   return tryOne(0);
 }
 function parsePrice(d){
-  var cp = (d.dealTrendInfos && d.dealTrendInfos[0] && d.dealTrendInfos[0].closePrice) || d.closePrice;
-  var n = parseInt(String(cp).replace(/[^0-9]/g,''),10);
+  // /basic 응답: closePrice = 실시간 현재가
+  var n = parseInt(String(d && d.closePrice).replace(/[^0-9]/g,''),10);
   return n>0 ? n : 0;
 }
 // 동시성 제한 풀(공개 프록시 rate-limit 회피)
