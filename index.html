@@ -519,13 +519,14 @@ function closeSector(){ document.getElementById('secModal').classList.remove('on
 document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeSector(); });
 
 // ===== 라이브 현재가(자동 갱신: 로드·새로고침·탭 복귀 시) =====
-// 네이버가 github.io Origin을 CORS 차단 → 동작 확인된 공개 프록시 경유(베스트 에포트). 실패 시 배포시점 값 유지.
+// 네이버가 github.io Origin을 CORS 차단 → Cloudflare Worker 중계(우선) + 공개 프록시 폴백. 실패 시 배포시점 값 유지.
 function naverStockUrl(code){ return 'https://m.stock.naver.com/api/stock/'+code+'/basic'; }  // /basic=실시간 현재가(/integration의 dealTrendInfos는 전일 일봉이라 분석가와 동일해짐)
 function naverIndexUrl(code){ return 'https://m.stock.naver.com/api/index/'+code+'/basic'; }
-function proxify(u){ return [
-  'https://api.codetabs.com/v1/proxy/?quest='+encodeURIComponent(u),
-  'https://api.allorigins.win/raw?url='+encodeURIComponent(u)
-]; }
+// ★Cloudflare Worker 중계(배포 후 URL로 채움). 비어있으면 공개 프록시 폴백만 사용.
+var WORKER_BASE = 'https://naver-stock-proxy.minjae9037.workers.dev/proxy?url=';
+function proxify(u){ var a=[]; if(WORKER_BASE) a.push(WORKER_BASE+encodeURIComponent(u));
+  a.push('https://api.codetabs.com/v1/proxy/?quest='+encodeURIComponent(u));
+  a.push('https://api.allorigins.win/raw?url='+encodeURIComponent(u)); return a; }
 function fetchJson(u){
   var us = proxify(u);
   function tryOne(i){
