@@ -262,7 +262,7 @@
   <div class="section-title"><span class="pin"></span>매매 가이드</div>
   <div class="panel">
     <div class="trade-grid">
-      <div class="trade-tile"><div class="k">현재가</div><div class="v">164,200</div><div class="meta">2026-06-04 종가</div></div>
+      <div class="trade-tile"><div class="k">현재가</div><div class="v" id="livePrice">164,200</div><div class="meta" id="livePriceMeta">2026-06-04 종가</div></div>
       <div class="trade-tile"><div class="k">6개월 목표가</div><div class="v" style="color:var(--buy)">180,000</div><div class="meta">+9.6% · 프로젝트 1차</div></div>
       <div class="trade-tile"><div class="k">12개월 목표가</div><div class="v" style="color:var(--buy)">198,000</div><div class="meta">+20.6% · 프로젝트 2차 (컨센 202,211)</div></div>
       <div class="trade-tile"><div class="k">손절선</div><div class="v" style="color:var(--sell)">147,800</div><div class="meta">진입 대비 -10.0%</div></div>
@@ -681,6 +681,33 @@ new Chart(document.getElementById('forecastChart'), {
 });
 
 applyChartTheme();
+</script>
+
+<!-- LIVE_PRICE_INJECTED -->
+<script>
+(function(){
+  var WORKER='https://naver-stock-proxy.minjae9037.workers.dev/proxy?url=';
+  var CODE='105560';
+  var elV=document.getElementById('livePrice'), elM=document.getElementById('livePriceMeta');
+  if(!elV) return;
+  function px(d){ var n=parseInt(String(d&&d.closePrice).replace(/[^0-9]/g,''),10); return n>0?n:0; }
+  function proxify(u){ return [WORKER+encodeURIComponent(u),'https://api.codetabs.com/v1/proxy/?quest='+encodeURIComponent(u),'https://api.allorigins.win/raw?url='+encodeURIComponent(u)]; }
+  function fetchJson(u){ var us=proxify(u); function t(i){ if(i>=us.length) return Promise.reject(); return fetch(us[i]).then(function(r){ if(!r.ok) throw 0; return r.json(); }).catch(function(){ return t(i+1); }); } return t(0); }
+  function pad(n){ return ('0'+n).slice(-2); }
+  function pull(){
+    fetchJson('https://m.stock.naver.com/api/stock/'+CODE+'/basic').then(function(d){
+      var n=px(d); if(!n) return;
+      elV.textContent=n.toLocaleString();
+      var pct=parseFloat(String(d.fluctuationsRatio).replace(/,/g,''));
+      var open=(d.marketStatus==='OPEN');
+      if(!isNaN(pct)) elV.style.color = pct>0?'var(--buy)':(pct<0?'var(--sell)':'');
+      if(elM){ var t=new Date(); elM.textContent='실시간 '+pad(t.getHours())+':'+pad(t.getMinutes())+':'+pad(t.getSeconds())+(isNaN(pct)?'':' · '+(pct>0?'+':'')+pct.toFixed(2)+'%')+(open?' · 장중':' · 장마감'); }
+    }).catch(function(){});
+  }
+  pull();
+  setInterval(function(){ if(document.visibilityState==='visible') pull(); }, 30000);
+  document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible') pull(); });
+})();
 </script>
 </body>
 </html>
