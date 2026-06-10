@@ -690,7 +690,7 @@ applyChartTheme();
   var elV=document.getElementById('livePrice'), elM=document.getElementById('livePriceMeta');
   if(!elV) return;
   function px(d){ var n=parseInt(String(d&&d.closePrice).replace(/[^0-9]/g,''),10); return n>0?n:0; }
-  function proxify(u){ return [WORKER+encodeURIComponent(u),'https://api.codetabs.com/v1/proxy/?quest='+encodeURIComponent(u),'https://api.allorigins.win/raw?url='+encodeURIComponent(u)]; }
+  function proxify(u){ return [WORKER+encodeURIComponent(u),'https://api.codetabs.com/v1/proxy/?quest='+encodeURIComponent(u)]; }
   function fetchJson(u){ var us=proxify(u); function t(i){ if(i>=us.length) return Promise.reject(); return fetch(us[i]).then(function(r){ if(!r.ok) throw 0; return r.json(); }).catch(function(){ return t(i+1); }); } return t(0); }
   function pad(n){ return ('0'+n).slice(-2); }
   function pull(){
