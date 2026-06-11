@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>이오테크닉스 (039030) — 투자 판단 대시보드</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" />
+<link rel="stylesheet" as="style" crossorigin
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="./ohlcv.js"></script>
+<style>
+  :root{
+    --bg:#0b0f17; --bg-2:#10151f; --card:#161b27; --card-2:#1c2230;
+    --border:#252c3b; --text:#e6edf3; --muted:#8b97a8;
+    --buy:#22d3a5; --buy-dim:#0f3a30; --sell:#f87171; --hold:#fbbf24;
+    --pos:#22d3a5; --neg:#f87171; --neu:#8b97a8;
+    --primary:#60a5fa; --accent:#a78bfa;
+    --shadow:0 2px 10px rgba(0,0,0,0.25);
+  }
+  :root[data-theme="light"]{
+    --bg:#f4f6fb; --bg-2:#e9eef6; --card:#ffffff; --card-2:#f4f7fc;
+    --border:#e1e7f0; --text:#1b2330; --muted:#5b6675;
+    --buy:#0ea672; --sell:#e0556a; --hold:#d18a04;
+    --pos:#0ea672; --neg:#e0556a;
+    --primary:#3b82f6; --accent:#8b5cf6;
+    --shadow:0 2px 12px rgba(30,50,90,0.08);
+  }
+  :root[data-theme="light"] .header{background:linear-gradient(135deg,#ffffff 0%,#eef3fb 100%)}
+  :root[data-theme="light"] .footer{background:#fbfcfe}
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font-family:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;line-height:1.5}
+  .wrap{max-width:1320px;margin:0 auto;padding:32px 24px 80px}
+  .header{display:flex;align-items:center;justify-content:space-between;gap:24px;
+    padding:28px 32px;background:linear-gradient(135deg,#161b27 0%,#1c2230 100%);
+    border:1px solid var(--border);border-radius:18px;margin-bottom:20px}
+  .h-left h1{margin:0;font-size:32px;font-weight:800;letter-spacing:-0.02em}
+  .h-left .sub{color:var(--muted);font-size:14px;margin-top:4px}
+  .ticker-badge{display:inline-block;background:rgba(120,140,180,0.18);color:var(--muted);
+    padding:3px 10px;border-radius:6px;font-size:12px;margin-left:8px;font-weight:600;
+    font-family:'SF Mono','Menlo',monospace}
+  .date-badge{display:inline-block;background:rgba(96,165,250,0.16);color:var(--primary);
+    padding:3px 10px;border-radius:6px;font-size:12px;margin-left:6px;font-weight:700;
+    font-family:'SF Mono','Menlo',monospace;vertical-align:2px}
+  .theme-toggle{background:var(--card);
+    border:1px solid var(--border);color:var(--text);border-radius:99px;padding:8px 14px;
+    font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;
+    gap:6px;box-shadow:var(--shadow);transition:transform .15s ease}
+  .theme-toggle:hover{transform:translateY(-1px)}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+  .brand{font-size:15px;font-weight:800;letter-spacing:-0.01em;color:var(--text);text-decoration:none;display:flex;align-items:center;gap:7px}
+  .brand:hover{color:var(--primary)}
+  .topbar-r{display:flex;align-items:center;gap:10px}
+  .backbtn{display:inline-flex;align-items:center;gap:5px;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:99px;padding:8px 16px;font-size:13px;font-weight:700;text-decoration:none;box-shadow:var(--shadow);transition:transform .15s ease}
+  .backbtn:hover{transform:translateX(-3px);border-color:var(--primary)}
+  .recbtn{display:inline-flex;align-items:center;gap:5px;background:var(--primary);color:#fff;border:1px solid var(--primary);border-radius:99px;padding:8px 15px;font-size:13px;font-weight:700;text-decoration:none;box-shadow:var(--shadow);transition:transform .15s ease;white-space:nowrap}
+  .recbtn:hover{transform:translateY(-1px);opacity:.92}
+  .h-right{text-align:right}
+  .price{font-size:34px;font-weight:800;letter-spacing:-0.02em}
+  .price-meta{font-size:13px;color:var(--muted);margin-top:6px}
+  .chg-up{color:var(--buy);font-weight:700}
+  .chg-down{color:var(--sell);font-weight:700}
+  .decision{display:grid;grid-template-columns:1.2fr 1fr;gap:20px;margin-bottom:20px}
+  @media (max-width: 880px){ .decision{grid-template-columns:1fr} }
+  .verdict-card{background:linear-gradient(135deg,#0f2e25 0%,#1a3a30 100%);
+    border:1px solid #1e5444;border-radius:18px;padding:32px;
+    display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden}
+  .verdict-card::before{content:"";position:absolute;top:-40px;right:-40px;width:200px;height:200px;
+    background:radial-gradient(circle,rgba(34,211,165,0.15),transparent 70%)}
+  .verdict-label{color:#7fd3b8;font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase}
+  .verdict-main{font-size:56px;font-weight:900;letter-spacing:-0.04em;color:var(--buy);margin:8px 0 4px;line-height:1}
+  .verdict-main small{font-size:20px;font-weight:700;letter-spacing:-0.01em;vertical-align:middle}
+  .verdict-sub{color:#9adfc7;font-size:15px;margin-top:6px}
+  .verdict-meta{display:flex;gap:24px;margin-top:24px;flex-wrap:wrap;position:relative;z-index:1}
+  .verdict-meta .item{display:flex;flex-direction:column}
+  .verdict-meta .k{font-size:11px;color:#7fd3b8;letter-spacing:0.05em;text-transform:uppercase;font-weight:600}
+  .verdict-meta .v{font-size:20px;font-weight:700;color:#e6f7f0;margin-top:2px}
+  .confidence-pill{display:inline-flex;align-items:center;gap:6px;background:rgba(96,165,250,0.15);
+    color:#9ec6ff;padding:4px 12px;border-radius:99px;font-size:12px;font-weight:600;margin-top:14px;width:fit-content;position:relative;z-index:1}
+  .confidence-pill::before{content:"";width:8px;height:8px;background:#60a5fa;border-radius:50%}
+  .score-card{background:var(--card);border:1px solid var(--border);border-radius:18px;
+    padding:28px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .score-card h3{margin:0 0 12px;font-size:14px;color:var(--muted);font-weight:600;letter-spacing:0.06em;text-transform:uppercase}
+  .doughnut-wrap{position:relative;width:200px;height:200px}
+  .doughnut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+  .doughnut-center .big{font-size:42px;font-weight:800;letter-spacing:-0.03em}
+  .doughnut-center .small{font-size:12px;color:var(--muted);margin-top:4px}
+  .score-breakdown{margin-top:18px;display:flex;gap:16px;font-size:13px;color:var(--muted)}
+  .score-breakdown b{color:var(--text)}
+  .section-title{font-size:14px;font-weight:700;color:var(--muted);letter-spacing:0.1em;
+    text-transform:uppercase;margin:28px 0 14px}
+  .section-title .pin{display:inline-block;width:4px;height:14px;background:var(--primary);
+    margin-right:10px;vertical-align:-2px;border-radius:2px}
+  .scores-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+  @media (max-width:900px){ .scores-grid{grid-template-columns:repeat(2,1fr)} }
+  .score-tile{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px}
+  .score-tile .label{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:0.05em;text-transform:uppercase}
+  .score-tile .val{font-size:30px;font-weight:800;margin-top:6px;letter-spacing:-0.02em}
+  .score-tile .max{font-size:14px;color:var(--muted);font-weight:500;margin-left:4px}
+  .score-tile .bar{height:6px;background:#2a3142;border-radius:3px;margin-top:12px;overflow:hidden}
+  .score-tile .bar > div{height:100%;background:linear-gradient(90deg,var(--primary),var(--accent));border-radius:3px;transition:width 1s ease}
+  .score-tile .note{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  @media (max-width:900px){ .grid-2{grid-template-columns:1fr} }
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:24px}
+  .panel h3{margin:0 0 16px;font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px}
+  .panel h3 .dot{width:8px;height:8px;border-radius:50%}
+  table.fin{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+  table.fin th, table.fin td{padding:10px 8px;text-align:right;border-bottom:1px solid var(--border);font-size:13px}
+  table.fin th:first-child, table.fin td:first-child{text-align:left;color:var(--muted)}
+  table.fin thead th{color:var(--muted);font-weight:600;font-size:12px;letter-spacing:0.04em;text-transform:uppercase}
+  table.fin tbody tr:hover{background:var(--card-2)}
+  .neg{color:var(--sell);font-weight:600}
+  .pos{color:var(--buy);font-weight:600}
+  .news-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+  @media (max-width:900px){ .news-grid{grid-template-columns:1fr} }
+  .news-card{background:var(--card-2);border:1px solid var(--border);border-radius:12px;padding:16px;
+    border-left:3px solid var(--border);transition:transform 0.15s ease,border-color 0.15s ease}
+  .news-card:hover{transform:translateY(-2px)}
+  .news-card.pos-card{border-left-color:var(--buy)}
+  .news-card.neg-card{border-left-color:var(--sell)}
+  .news-card .head{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);margin-bottom:8px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase}
+  .impact{padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;letter-spacing:0.05em}
+  .impact.high{background:rgba(248,113,113,0.18);color:#fda4af}
+  .impact.high.pos{background:rgba(34,211,165,0.18);color:#7ce3c2}
+  .impact.mid{background:rgba(251,191,36,0.18);color:#fcd75a}
+  .impact.low{background:rgba(139,151,168,0.18);color:#b6c0d0}
+  .news-card .title{font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px;line-height:1.5}
+  .news-card .src{font-size:12px;color:var(--muted)}
+  .news-card .desc{font-size:12.5px;color:#b6c0d0;margin-top:6px;line-height:1.55}
+  :root[data-theme="light"] .news-card .desc{color:#5b6675}
+  .trade-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:8px}
+  @media (max-width:900px){ .trade-grid{grid-template-columns:repeat(2,1fr)} }
+  .trade-tile{background:var(--card-2);border:1px solid var(--border);border-radius:12px;padding:18px}
+  .trade-tile .k{font-size:11px;color:var(--muted);letter-spacing:0.06em;text-transform:uppercase;font-weight:600}
+  .trade-tile .v{font-size:22px;font-weight:800;margin-top:6px;letter-spacing:-0.02em}
+  .trade-tile .meta{font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.5}
+  .split-buy{margin-top:16px;display:flex;gap:10px;flex-wrap:wrap}
+  .split-buy .step{flex:1;min-width:160px;background:var(--card-2);border:1px solid var(--border);
+    border-radius:10px;padding:12px 14px;text-align:center}
+  .split-buy .step .n{display:inline-block;width:22px;height:22px;border-radius:50%;background:var(--primary);
+    color:#0b0f17;font-weight:800;line-height:22px;font-size:12px;margin-bottom:6px}
+  .split-buy .step .p{font-size:18px;font-weight:700}
+  .split-buy .step .w{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .risk-list{list-style:none;padding:0;margin:0}
+  .risk-list li{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px dashed var(--border);font-size:13.5px}
+  .risk-list li:last-child{border-bottom:none}
+  .risk-list .icon{flex-shrink:0;width:18px;height:18px;border-radius:50%;background:rgba(251,191,36,0.15);
+    color:#fbbf24;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:2px}
+  .quote-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:20px}
+  @media (max-width:900px){ .quote-grid{grid-template-columns:repeat(3,1fr)} }
+  @media (max-width:540px){ .quote-grid{grid-template-columns:repeat(2,1fr)} }
+  .quote-tile{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+  .quote-tile .k{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:0.04em;text-transform:uppercase}
+  .quote-tile .v{font-size:15px;font-weight:700;margin-top:4px;letter-spacing:-0.01em;font-variant-numeric:tabular-nums}
+  .quote-tile .v.hl{color:var(--primary)}
+  .footer{margin-top:32px;padding:20px;background:var(--card);border:1px dashed var(--border);
+    border-radius:12px;font-size:12px;color:var(--muted);line-height:1.7}
+  .footer b{color:#c9d1d9}
+  :root[data-theme="light"] .footer b{color:#1b2330}
+  .chart-wrap{position:relative;height:280px}
+  .chart-wrap.tall{height:360px}
+  .period-btn{background:transparent;border:1px solid var(--border);color:var(--muted);
+    font-size:12px;font-weight:600;padding:6px 12px;border-radius:6px;cursor:pointer;
+    font-family:inherit;transition:all 0.15s ease;letter-spacing:0.05em}
+  .period-btn:hover{border-color:var(--primary);color:var(--text)}
+  .period-btn.active{background:var(--primary);border-color:var(--primary);color:#0b0f17}
+  .forecast-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  @media (max-width:900px){ .forecast-grid{grid-template-columns:1fr} }
+  .fc{background:var(--card-2);border:1px solid var(--border);border-radius:12px;padding:18px;
+    border-top:3px solid var(--border)}
+  .fc.bull{border-top-color:var(--buy)}
+  .fc.base{border-top-color:var(--hold)}
+  .fc.bear{border-top-color:var(--sell)}
+  .fc-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .fc-label{font-size:14px;font-weight:700}
+  .fc-prob{background:rgba(96,165,250,0.18);color:#9ec6ff;padding:3px 10px;border-radius:99px;
+    font-size:11px;font-weight:700;letter-spacing:0.05em}
+  .fc-assume{font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.55;min-height:50px}
+  .fc-table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+  .fc-table th, .fc-table td{padding:8px 6px;border-bottom:1px solid var(--border);font-size:13px;text-align:right}
+  .fc-table th:first-child, .fc-table td:first-child{text-align:left;color:var(--muted)}
+  .fc-table th{font-size:11px;letter-spacing:0.04em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .fc-table tr:last-child td{border-bottom:none}
+  .ev-banner{margin-top:20px;background:linear-gradient(135deg,#1a2940 0%,#152138 100%);
+    border:1px solid #2a4570;border-radius:14px;padding:20px 24px;
+    display:flex;justify-content:space-between;align-items:center;gap:24px;flex-wrap:wrap}
+  .ev-label{font-size:13px;font-weight:700;color:#9ec6ff;letter-spacing:0.04em;text-transform:uppercase}
+  .ev-meta{font-size:12px;color:var(--muted);margin-top:4px}
+  .ev-grid{display:flex;gap:32px}
+  .ev-item{text-align:right}
+  .ev-k{font-size:11px;color:var(--muted);letter-spacing:0.05em;text-transform:uppercase;font-weight:600}
+  .ev-v{font-size:22px;font-weight:800;margin-top:4px;letter-spacing:-0.02em}
+  .ev-r{font-size:15px;font-weight:700;margin-top:2px}
+  .ev-r.pos{color:var(--buy)}
+  .ev-r.neg{color:var(--sell)}
+  .ev-chart-wrap{margin-top:18px;padding-top:18px;border-top:1px dashed var(--border)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <a class="brand" href="../">📊 Stock Dashboard</a>
+    <div class="topbar-r">
+      <a class="recbtn" href="https://minjae9037.github.io/stock-recommend/">🚀 추천</a>
+      <button class="theme-toggle" onclick="toggleTheme()"><span id="themeIcon">🌙</span> <span id="themeLabel">다크</span></button>
+      <a class="backbtn" href="../">‹ 메인으로</a>
+    </div>
+  </div>
+
+  <header class="header">
+    <div class="h-left">
+      <h1>이오테크닉스 <span class="ticker-badge">039030 · KOSDAQ</span> <span class="date-badge">📅 26.06.12.</span></h1>
+      <div class="sub">반도체 레이저 마킹·드릴링·어닐링 장비 · 분석 기준일 2026-06-12</div>
+    </div>
+    <div class="h-right">
+      <div class="price">504,000 <span style="font-size:18px;color:var(--muted)">원</span></div>
+      <div class="price-meta"><span class="chg-up">▲ 66,000 (+15.1%)</span> · 시총 <b>6조 2,091억</b> · 외인 <b>25.15%</b></div>
+    </div>
+  </header>
+
+  <div class="quote-grid">
+    <div class="quote-tile"><div class="k">52주 최고</div><div class="v">598,000</div></div>
+    <div class="quote-tile"><div class="k">52주 최저</div><div class="v">142,400</div></div>
+    <div class="quote-tile"><div class="k">PER (후행)</div><div class="v">83.89</div></div>
+    <div class="quote-tile"><div class="k">PER (추정)</div><div class="v hl">52.42</div></div>
+    <div class="quote-tile"><div class="k">PBR</div><div class="v">8.78</div></div>
+    <div class="quote-tile"><div class="k">배당수익률</div><div class="v">0.24%</div></div>
+  </div>
+
+  <div class="decision">
+    <div class="verdict-card">
+      <div>
+        <div class="verdict-label">🎯 최종 투자 판단</div>
+        <div class="verdict-main">BUY <small>(조건부)</small></div>
+        <div class="verdict-sub">반도체 슈퍼사이클·HBM4 본격화 국면에서 &lt;b&gt;아직 덜 오른 후발 레이저장비주&lt;/b&gt;. 초저부채(13%)·고마진(영업이익률 21%↑)에 어닐링·커팅 신장비와 첨단 패키징 수주 촉매가 더해진 구조. 다만 PER 84배의 &lt;b&gt;밸류 부담&lt;/b&gt;과 단기 급등(6/11 +15%)에 따른 변동성은 &lt;b&gt;분할 매수&lt;/b&gt;로 관리.</div>
+        <div class="confidence-pill">Confidence: MEDIUM</div>
+      </div>
+      <div class="verdict-meta">
+        <div class="item"><div class="k">통합 점수</div><div class="v">88.0 / 100</div></div>
+        <div class="item"><div class="k">재무 (가중 60%)</div><div class="v">94 / 100</div></div>
+        <div class="item"><div class="k">뉴스 (가중 40%)</div><div class="v">+58</div></div>
+      </div>
+    </div>
+    <div class="score-card">
+      <h3>통합 점수</h3>
+      <div class="doughnut-wrap">
+        <canvas id="overallChart"></canvas>
+        <div class="doughnut-center">
+          <div class="big" style="color:var(--buy)">88.0</div>
+          <div class="small">/ 100 · BUY 구간</div>
+        </div>
+      </div>
+      <div class="score-breakdown">
+        <span>재무 <b>56.4</b></span><span>뉴스 <b>31.6</b></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title"><span class="pin"></span>매매 가이드</div>
+  <div class="panel">
+    <div class="trade-grid">
+      <div class="trade-tile"><div class="k">현재가</div><div class="v">504,000</div><div class="meta">2026-06-11 종가</div></div>
+      <div class="trade-tile"><div class="k">6개월 목표가</div><div class="v" style="color:var(--buy)">550,000</div><div class="meta">+9.1% · 프로젝트 1차</div></div>
+      <div class="trade-tile"><div class="k">12개월 목표가</div><div class="v" style="color:var(--buy)">595,000</div><div class="meta">+18.1% · 프로젝트 2차</div></div>
+      <div class="trade-tile"><div class="k">손절선</div><div class="v" style="color:var(--sell)">443,520</div><div class="meta">진입 대비 -12.0%</div></div>
+    </div>
+    <div style="margin-top:20px;font-size:13px;color:var(--muted)">
+      📌 <b style="color:var(--text)">분할매수 전략 (3단계)</b> — 현재가 504,000원 매수 후 분할 접근. 목표가 595,000원 (+18%) 도달 시 분할 매도. 손절선 443,520원 (-12%) 이탈 시 정리. (환율 급등 경계 국면 — 분할·관망 권고)
+    </div>
+    <div class="split-buy"><div class="step"><div class="n">1</div><div class="p">504,000원</div><div class="w">1차: 현재가 소량 진입(분할 시작)</div></div><div class="step"><div class="n">2</div><div class="p">478,800원</div><div class="w">2차: -5% 눌림 시 비중 확대</div></div><div class="step"><div class="n">3</div><div class="p">453,600원</div><div class="w">3차: -10%·지지 확인 시 추가, 손절선 이탈 시 보류</div></div></div>
+    <div style="margin-top:18px;font-size:13px">💼 <b>권장 포트폴리오 비중:</b> 전체의 <b style="color:var(--primary)">5~8%</b></div>
+  </div>
+
+  <div class="section-title"><span class="pin"></span>5년 주가 · 거래량 (2021-06 ~ 2026-06)</div>
+  <div class="panel">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px;flex-wrap:wrap;gap:12px">
+      <div style="display:flex;gap:22px;font-size:13px;flex-wrap:wrap">
+        <span><span style="color:var(--muted)">기간 수익률</span> <b style="color:var(--buy);font-size:18px;margin-left:6px">+368%</b></span>
+        <span><span style="color:var(--muted)">기간 최저</span> <b style="margin-left:6px">58,700</b></span>
+        <span><span style="color:var(--muted)">기간 최고</span> <b style="margin-left:6px">573,000</b></span>
+        <span><span style="color:var(--muted)">데이터</span> <b style="margin-left:6px">1222개 일봉</b></span>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="period-btn" data-period="60">3M</button>
+        <button class="period-btn" data-period="120">6M</button>
+        <button class="period-btn active" data-period="250">1Y</button>
+        <button class="period-btn" data-period="750">3Y</button>
+        <button class="period-btn" data-period="9999">전체</button>
+      </div>
+    </div>
+    <div class="chart-wrap tall"><canvas id="priceChart"></canvas></div>
+    <div style="font-size:11px;color:var(--muted);margin:6px 2px 0">📉 볼린저밴드(20기간 · 2σ): <span style="color:#a78bfa;font-weight:700">밴드</span> · <span style="color:#fbbf24;font-weight:700">20 이동평균</span> · <span style="color:#f87171;font-weight:700">● 상단 돌파</span> · <span style="color:#60a5fa;font-weight:700">● 하단 이탈</span></div>
+    <div class="chart-wrap" style="height:120px;margin-top:8px"><canvas id="volumeChart"></canvas></div>
+  </div>
+
+  <div class="section-title"><span class="pin"></span>재무 점수 분해 (94 / 100)</div>
+  <div class="scores-grid">
+    <div class="score-tile">
+      <div class="label">수익성</div>
+      <div class="val">23<span class="max">/25</span></div>
+      <div class="bar"><div style="width:92%"></div></div>
+      <div class="note">2025 영업이익률 21.2%·OCF 1,003억으로 레이저장비 고마진 구조. 영업이익 808억(YoY +159%) 급증, 1Q26 영업이익률 25.9%로 추가 개선.</div>
+    </div><div class="score-tile">
+      <div class="label">성장성</div>
+      <div class="val">23<span class="max">/25</span></div>
+      <div class="bar"><div style="width:92%"></div></div>
+      <div class="note">매출 3,809억(YoY +18.7%)·1Q26 1,151억으로 외형 확대. 어닐링·커팅 신장비와 HBM4/첨단패키징 수요가 FY26 역대 최고 실적(매출 4,800억대 추정) 견인 기대.</div>
+    </div><div class="score-tile">
+      <div class="label">안정성</div>
+      <div class="val">30<span class="max">/30</span></div>
+      <div class="bar"><div style="width:100%"></div></div>
+      <div class="note">부채비율 13%대 초저부채·유동비율 597%로 재무 최상위. 영업현금흐름 1,003억으로 자체 투자여력 충분, 외부 차입 의존도 사실상 없음.</div>
+    </div><div class="score-tile">
+      <div class="label">밸류에이션</div>
+      <div class="val">18<span class="max">/20</span></div>
+      <div class="bar"><div style="width:90%"></div></div>
+      <div class="note">PER 83.9배(컨센 52.4배)·PBR 8.78배로 절대 밸류 부담. 다만 동종 급등주(주성엔지·원익IPS) 대비 후발 상승으로 상대 매력은 잔존.</div>
+    </div>
+  </div>
+
+  <div class="section-title"><span class="pin"></span>재무 시계열 (연결 기준, 단위: 억원)</div>
+  <div class="grid-2">
+    <div class="panel">
+      <h3><span class="dot" style="background:var(--primary)"></span>매출 · 영업이익 추이</h3>
+      <div class="chart-wrap"><canvas id="revenueChart"></canvas></div>
+    </div>
+    <div class="panel">
+      <h3><span class="dot" style="background:var(--buy)"></span>영업활동현금흐름 (현금 창출력)</h3>
+      <div class="chart-wrap"><canvas id="cfChart"></canvas></div>
+    </div>
+  </div>
+  <div class="grid-2" style="margin-top:20px">
+    <div class="panel">
+      <h3><span class="dot" style="background:var(--accent)"></span>재무건전성 추이</h3>
+      <div class="chart-wrap"><canvas id="healthChart"></canvas></div>
+    </div>
+    <div class="panel">
+      <h3><span class="dot" style="background:var(--hold)"></span>핵심 재무 지표 표</h3>
+      <table class="fin">
+        <thead><tr><th>항목</th><th>2023</th><th>2024</th><th>2025</th><th>1Q26</th></tr></thead>
+        <tbody><tr><td>매출액</td><td>3,164</td><td class="pos">3,209</td><td class="pos">3,809</td><td>1,151</td></tr><tr><td>영업이익</td><td>283</td><td class="pos">312</td><td class="pos">808</td><td>298</td></tr><tr><td>영업이익률(%)</td><td>9.0</td><td class="pos">9.7</td><td class="pos">21.2</td><td>25.9</td></tr><tr><td>ROE(%)</td><td>6.5</td><td class="pos">7.1</td><td class="pos">8.4</td><td>—</td></tr><tr><td>부채비율(%)</td><td>8.8</td><td>8.3</td><td>13.1</td><td>13.7</td></tr><tr><td>영업CF</td><td>316</td><td class="pos">554</td><td class="pos">1,003</td><td>268</td></tr></tbody>
+      </table>
+      <div style="font-size:11.5px;color:var(--muted);margin-top:10px">DART 연결재무제표(fnlttSinglAcntAll, CFS) 2023~2025 사업보고서 + 2026 1Q 분기보고서. 단위 억원.</div>
+    </div>
+  </div>
+
+  <div class="section-title"><span class="pin"></span>뉴스 센티먼트 (최근 30일, 약 22건)</div>
+  <div class="grid-2">
+    <div class="panel">
+      <h3><span class="dot" style="background:var(--buy)"></span>🟢 주요 호재 (5건)</h3>
+      <div class="news-grid"><div class="news-card pos-card">
+          <div class="head"><span class="impact high pos">강도 上</span><span>2026-06-11</span></div>
+          <div class="title">반도체 슈퍼사이클…'소부장주의 시간' 온다</div>
+          <div class="src">한국경제</div>
+          <div class="desc">메모리 제조사 설비 증설 본격화로 이오테크닉스 +15.07% 급등 등 소부장주 일제 강세. 실적 개선 기대 부각.</div>
+        </div><div class="news-card pos-card">
+          <div class="head"><span class="impact high pos">강도 上</span><span>2026-06-11</span></div>
+          <div class="title">코스피 급락 틈탄 코스닥의 반란…이오테크닉스 레이저 장비 HBM 수혜</div>
+          <div class="src">펜앤드마이크</div>
+          <div class="desc">HBM·첨단패키징 공정 정교화로 고성능 레이저 가공장비 활용도 상승. 메모리 가격 상승→설비투자 연결이 실적 핵심 변수.</div>
+        </div><div class="news-card pos-card">
+          <div class="head"><span class="impact high pos">강도 上</span><span>2026-06-11</span></div>
+          <div class="title">코스피 팔고 코스닥 사는 외국인…반도체 소부장 집중 매수</div>
+          <div class="src">대한경제</div>
+          <div class="desc">외국인이 이오테크닉스 1,661억원 순매수하며 코스닥 소부장 비중 확대 주도. 지수 방어 견인.</div>
+        </div><div class="news-card pos-card">
+          <div class="head"><span class="impact mid">강도 中</span><span>2026-06-11</span></div>
+          <div class="title">케이씨텍·엠케이전자 파죽지세…HBM 수혜주 찾기 분주</div>
+          <div class="src">핀포인트뉴스</div>
+          <div class="desc">이오테크닉스, 레이저 공정장비 경쟁력으로 HBM 투자 확대 직접 수혜주로 평가.</div>
+        </div><div class="news-card pos-card">
+          <div class="head"><span class="impact mid">강도 中</span><span>2026-04-13</span></div>
+          <div class="title">[Who Is?] 성규동 이오테크닉스 회장…펨토초 커팅·UV드릴러·어닐링으로 첨단패키징 확장</div>
+          <div class="src">비즈니스포스트</div>
+          <div class="desc">레이저 마킹을 넘어 디본더·어닐링 등 HBM 고단화·웨이퍼 공정 전반으로 사업 영역 확장 중.</div>
+        </div></div>
+    </div>
+    <div class="panel">
+      <h3><span class="dot" style="background:var(--sell)"></span>🔴 주요 악재 (4건)</h3>
+      <div class="news-grid"><div class="news-card neg-card">
+          <div class="head"><span class="impact mid">강도 中</span><span>2026-06-11</span></div>
+          <div class="title">[코스닥 기관] 솔브레인·미코·이오테크닉스 등은 매도 우위</div>
+          <div class="src">핀포인트뉴스</div>
+          <div class="desc">급등 국면에서 기관은 이오테크닉스 차익실현 매도 우위. 업종 전체보다 개별 실적·밸류에이션 차별화 국면.</div>
+        </div><div class="news-card neg-card">
+          <div class="head"><span class="impact mid">강도 中</span><span>2026-06-11</span></div>
+          <div class="title">추격매수보다 '선별'…실제 수주 미확인 시 상승분 빠르게 반납 경고</div>
+          <div class="src">펜앤드마이크</div>
+          <div class="desc">업황 기대만으로 선행 급등한 종목은 실제 수주 확인 실패 시 변동성 확대 우려.</div>
+        </div><div class="news-card neg-card">
+          <div class="head"><span class="impact mid">강도 中</span><span>2026-05-29</span></div>
+          <div class="title">이오테크닉스 -7.12%…단기 급등 부담에 조정</div>
+          <div class="src">핀포인트뉴스</div>
+          <div class="desc">레이저 응용장비 경쟁력은 유지되나 단기 급등에 따른 밸류 부담으로 차익매물 출회.</div>
+        </div><div class="news-card neg-card">
+          <div class="head"><span class="impact low">강도 下</span><span>2026-05-27</span></div>
+          <div class="title">삼전닉스 레버리지 ETF 효과…이오테크닉스 -5.85% 약세</div>
+          <div class="src">더비즈</div>
+          <div class="desc">대형 반도체주로 수급 쏠리며 코스닥 장비주 약세. 외국인 매도세 확대.</div>
+        </div></div>
+    </div>
+  </div>
+
+  <div class="section-title"><span class="pin"></span>센티먼트 게이지</div>
+  <div class="panel">
+    <div style="display:grid;grid-template-columns:1fr 2fr;gap:30px;align-items:center">
+      <div style="text-align:center">
+        <div style="font-size:13px;color:var(--muted);font-weight:600;letter-spacing:0.06em;text-transform:uppercase">뉴스 종합 점수</div>
+        <div style="font-size:48px;font-weight:900;color:var(--buy);margin-top:6px;letter-spacing:-0.03em">+58</div>
+        <div style="font-size:12px;color:var(--muted)">(-100 ~ +100 척도)</div>
+      </div>
+      <div class="chart-wrap" style="height:140px"><canvas id="sentimentChart"></canvas></div>
+    </div>
+    <div style="display:flex;gap:24px;margin-top:16px;flex-wrap:wrap;font-size:13px">
+      <div>📈 <b>단기 모멘텀:</b> <span style="color:var(--buy);font-weight:700">긍정</span> 6/11 +15.07% 급등과 외국인 1,661억 순매수로 소부장 슈퍼사이클 주도주에 합류. 다만 단기 급등 후 기관 차익실현 매도와 변동성 경계 병존.</div>
+      <div>🔭 <b>중장기 펀더멘털:</b> <span style="font-weight:700">긍정</span> HBM4 본격화·첨단패키징 확대라는 구조적 수요에 어닐링·커팅 신장비 성과가 더해져 FY26 역대 최고 실적 전망. 평균 12M 목표주가 약 52만원(고 65만·저 34만)으로 컨센 우상향.</div>
+    </div>
+  </div>
+
+  <div class="section-title"><span class="pin"></span>6개월 / 12개월 가격 예측 (시나리오 분석)</div>
+  <div class="panel">
+    <div style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.7;padding:14px;background:rgba(96,165,250,0.08);border-radius:10px;border-left:3px solid var(--primary)">
+      🔮 <b style="color:var(--text)">정직한 고지</b> — AI는 특정 시점의 주가를 정확히 예측할 수 없습니다. 아래는 펀더멘털(추정 EPS·PER 밴드), 뉴스 센티먼트, 컨센서스 목표가를 종합한 <b style="color:var(--text)">3개 시나리오</b>이며, 각각에 확률을 부여해 가중 기댓값을 산출합니다.
+    </div>
+    <div class="forecast-grid">
+      <div class="fc bull">
+        <div class="fc-header"><span class="fc-label">🟢 강세 (Bull)</span><span class="fc-prob">확률 35%</span></div>
+        <div class="fc-assume">HBM4·첨단패키징 투자 본격화로 어닐링·커팅 신장비 수주가 실적으로 연결, FY26 매출 4,800억·영업이익 1,238억 역대 최고 달성 → 멀티플 정당화하며 64만원대 상회.</div>
+        <table class="fc-table">
+          <tr><th>기간</th><th>예상가</th><th>수익률</th></tr>
+          <tr><td>6개월</td><td>573,000</td><td class="pos">+13.7%</td></tr>
+          <tr><td>12개월</td><td>642,600</td><td class="pos">+27.5%</td></tr>
+        </table>
+      </div>
+      <div class="fc base">
+        <div class="fc-header"><span class="fc-label">🟡 기본 (Base)</span><span class="fc-prob">확률 45%</span></div>
+        <div class="fc-assume">반도체 소부장 강세 지속·실적 점진 개선으로 컨센 평균 목표가(약 52만~59만원) 부근 안착. 현재가 대비 +18% 내외.</div>
+        <table class="fc-table">
+          <tr><th>기간</th><th>예상가</th><th>수익률</th></tr>
+          <tr><td>6개월</td><td>550,000</td><td class="pos">+9.1%</td></tr>
+          <tr><td>12개월</td><td>595,000</td><td class="pos">+18.1%</td></tr>
+        </table>
+      </div>
+      <div class="fc bear">
+        <div class="fc-header"><span class="fc-label">🔴 약세 (Bear)</span><span class="fc-prob">확률 20%</span></div>
+        <div class="fc-assume">단기 급등 차익실현·수주 가시성 미확인·환율 급등이 겹치며 고밸류 멀티플 수축, 손절선 44만원대(-12%)까지 조정.</div>
+        <table class="fc-table">
+          <tr><th>기간</th><th>예상가</th><th>수익률</th></tr>
+          <tr><td>6개월</td><td>474,000</td><td class="neg">-6.0%</td></tr>
+          <tr><td>12개월</td><td>443,520</td><td class="neg">-12.0%</td></tr>
+        </table>
+      </div>
+    </div>
+    <div class="ev-banner">
+      <div><div class="ev-label">⚖️ 가중 기댓값</div><div class="ev-meta">시나리오별 확률 × 예상 수익률 합산 (위험조정 기대값)</div></div>
+      <div class="ev-grid">
+        <div class="ev-item"><div class="ev-k">6개월 기댓값</div><div class="ev-v">542,850원</div><div class="ev-r pos">+7.7%</div></div>
+        <div class="ev-item"><div class="ev-k">12개월 기댓값</div><div class="ev-v">581,364원</div><div class="ev-r pos">+15.3%</div></div>
+      </div>
+    </div>
+    <div class="ev-chart-wrap"><div class="chart-wrap" style="height:280px"><canvas id="forecastChart"></canvas></div></div>
+    <div style="font-size:11.5px;color:var(--muted);margin-top:16px;line-height:1.7;padding:12px;background:var(--card-2);border-radius:8px">
+      <b style="color:var(--text)">🎯 프로젝트 목표 대비 현실성</b> — 6M +30%(약 65.5만원)는 bull 시나리오(어닐링 신장비 수주 가시화) 동반 시에만 현실적이며, 컨센 평균 목표가가 현재가 대비 +4%에 불과해 base로는 다소 공격적. 12M +40%(약 70.6만원)는 HBM4 실적 본격 반영 시 도달 가능하나 PER 84배 부담상 분할 진입·목표 +18% 우선 확보가 합리적.
+    </div>
+  </div>
+
+  <div class="section-title"><span class="pin"></span>리스크 및 모니터링 포인트</div>
+  <div class="panel">
+    <ul class="risk-list"><li><span class="icon">!</span><div><b>고밸류 부담</b>: PER 83.9배(컨센 52.4배)·PBR 8.78배로 실적 둔화·수주 지연 시 멀티플 수축 리스크.</div></li><li><span class="icon">!</span><div><b>단기 급등 변동성</b>: 6/11 +15% 등 소부장 테마 동반 급등으로 차익실현 매물·외국인 수급 변동에 단기 급락 가능.</div></li><li><span class="icon">!</span><div><b>장비 수주 변동성</b>: 메모리 가격 상승이 실제 고객사 설비투자로 연결될지가 실적의 핵심 변수, 수주 가시성 미확인 시 상승분 반납 우려.</div></li><li><span class="icon">!</span><div><b>외인 수급 양면성</b>: 6/11 대규모 순매수했으나 5월 말 대형주 쏠림 국면에선 매도 우위를 보여 수급 일관성 부족.</div></li><li><span class="icon">!</span><div><b>환율·매크로</b>: 원/달러 환율 급등 및 중동 지정학 리스크 등 매크로 변수가 코스닥 고밸류주 투자심리를 압박.</div></li></ul>
+  </div>
+
+  <div class="footer">
+    <div><b>데이터 출처</b> — DART 연결재무제표(2023~2025 사업보고서 · 2026 1Q 분기보고서) · 네이버 모바일 시세(2026-06-12 기준) · 네이버 검색 뉴스(최근 30일)</div>
+    <div style="margin-top:8px"><b>한계</b> — 본 분석은 DART 연결재무제표(2023~1Q26)와 2026-06-12 기준 최근 30일 네이버 뉴스·증권사 리포트를 종합한 참고 자료이며, 투자 추천이 아닙니다. 종목코드 039030 이오테크닉스는 코스닥 고밸류·고변동 종목으로 PER 84배·6/11 +15% 급등 후 차익실현 리스크가 큽니다. 투자 판단과 책임은 전적으로 투자자 본인에게 있습니다.</div>
+    <div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--border)"><b>⚠️ 면책</b> — 본 판단은 자동화된 분석 결과이며 투자 손실의 책임은 투자자 본인에게 있습니다. 실제 매매 전 추가 검증을 권장합니다. 본 시스템은 추천 시스템이며 자동매매를 수행하지 않습니다.</div>
+    <div style="margin-top:10px;text-align:right;font-size:11px">Generated by Claude_Cowork stock dashboard · 2026-06-12</div>
+  </div>
+</div>
+
+<script>
+const THEMES = {
+  light: { tick:'#5b6675', grid:'#e6eaf1', track:'#e1e7f0', tipBg:'#1b2330', tipBorder:'#1b2330' },
+  dark:  { tick:'#8b97a8', grid:'#1f2533', track:'#252c3b', tipBg:'#161b27', tipBorder:'#252c3b' }
+};
+function curTheme(){ return document.documentElement.getAttribute('data-theme') || 'light'; }
+(function initTheme(){
+  let t = 'light';
+  try { t = localStorage.getItem('stock-theme') || 'light'; } catch(e){}
+  document.documentElement.setAttribute('data-theme', t);
+})();
+function syncToggleUI(){
+  const t = curTheme();
+  const icon = document.getElementById('themeIcon'), label = document.getElementById('themeLabel');
+  if(icon) icon.textContent = t === 'light' ? '🌙' : '☀️';
+  if(label) label.textContent = t === 'light' ? '다크' : '라이트';
+}
+function applyChartTheme(){
+  const T = THEMES[curTheme()];
+  Chart.defaults.color = T.tick;
+  Chart.defaults.borderColor = T.grid;
+  const insts = Chart.instances || {};
+  Object.values(insts).forEach(ch => {
+    try {
+      if (ch.config && ch.config.type === 'doughnut') {
+        const ds = ch.data.datasets[0];
+        if (ds && Array.isArray(ds.backgroundColor) && ds.backgroundColor.length >= 2) ds.backgroundColor[1] = T.track;
+      }
+      const sc = ch.options.scales || {};
+      Object.values(sc).forEach(s => {
+        if (s.grid) s.grid.color = T.grid;
+        if (s.ticks) s.ticks.color = T.tick;
+      });
+      const pl = ch.options.plugins || {};
+      if (pl.tooltip){ pl.tooltip.backgroundColor = T.tipBg; pl.tooltip.borderColor = T.tipBorder; pl.tooltip.titleColor='#fff'; pl.tooltip.bodyColor='#e6edf3'; }
+      if (pl.legend && pl.legend.labels) pl.legend.labels.color = T.tick;
+      ch.update('none');
+    } catch(e){}
+  });
+}
+function toggleTheme(){
+  const next = curTheme() === 'light' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', next);
+  try { localStorage.setItem('stock-theme', next); } catch(e){}
+  syncToggleUI();
+  applyChartTheme();
+}
+syncToggleUI();
+Chart.defaults.color = THEMES[curTheme()].tick;
+Chart.defaults.borderColor = THEMES[curTheme()].grid;
+Chart.defaults.font.family = "'Pretendard Variable', Pretendard, -apple-system, sans-serif";
+
+new Chart(document.getElementById('overallChart'), {
+  type: 'doughnut',
+  data: { datasets: [{ data: [88.0, 12.0], backgroundColor: ['#22d3a5', '#252c3b'], borderWidth: 0, cutout: '75%' }] },
+  options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: false } } }
+});
+
+const FIN_LABELS = ["2023", "2024", "2025", "1Q26"];
+new Chart(document.getElementById('revenueChart'), {
+  type: 'bar',
+  data: { labels: FIN_LABELS, datasets: [
+    { label: '매출액', data: [3164,3209,3809,1151], backgroundColor: 'rgba(96,165,250,0.7)', borderRadius: 6, order: 2 },
+    { label: '영업이익', data: [283,312,808,298], backgroundColor: 'rgba(34,211,165,0.85)', borderRadius: 6, order: 2 },
+    { label: '영업이익률(%)', data: [9,9.7,21.2,25.9], type: 'line', yAxisID: 'y1', borderColor: '#fbbf24', backgroundColor: '#fbbf24', tension: 0.3, borderWidth: 2, pointRadius: 4, pointHoverRadius: 6, order: 1 }
+  ] },
+  options: { responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'top', labels: { boxWidth: 12, padding: 12, font: { size: 11 } } } },
+    scales: { y: { ticks: { callback: v => v + '억' }, grid: { color: '#1f2533' } },
+      y1: { position: 'right', ticks: { callback: v => v + '%' }, grid: { display: false } },
+      x: { grid: { display: false } } } }
+});
+
+new Chart(document.getElementById('cfChart'), {
+  type: 'bar',
+  data: { labels: FIN_LABELS, datasets: [{ label: '영업활동현금흐름', data: [316,554,1003,268],
+    backgroundColor: (ctx) => { const v = ctx.parsed.y; return v < 0 ? '#f87171' : (v >= 0 ? '#22d3a5' : '#a5e9d2'); }, borderRadius: 6 }] },
+  options: { responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.parsed.y + '억원' } } },
+    scales: { y: { ticks: { callback: v => v + '억' }, grid: { color: '#1f2533' } }, x: { grid: { display: false } } } }
+});
+
+new Chart(document.getElementById('healthChart'), {
+  type: 'line',
+  data: { labels: FIN_LABELS, datasets: [
+    { label: '부채비율(%) ↓ 양호', data: [8.8,8.3,13.1,13.7], borderColor: '#f87171', backgroundColor: 'rgba(248,113,113,0.1)', tension: 0.3, borderWidth: 2.5, pointRadius: 4, fill: true },
+    { label: '유동비율(%) ↑ 양호', data: [913.1,926.4,622,597.1], borderColor: '#22d3a5', backgroundColor: 'rgba(34,211,165,0.1)', tension: 0.3, borderWidth: 2.5, pointRadius: 4, fill: true }
+  ] },
+  options: { responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'top', labels: { boxWidth: 12, padding: 12, font: { size: 11 } } } },
+    scales: { y: { ticks: { callback: v => v + '%' }, grid: { color: '#1f2533' } }, x: { grid: { display: false } } } }
+});
+
+new Chart(document.getElementById('sentimentChart'), {
+  type: 'bar',
+  data: { labels: ['호재 (강도 上)', '호재 (강도 中)', '악재 (강도 上)', '악재 (강도 中)'],
+    datasets: [{ data: [3, 2, 1, 3], backgroundColor: ['#22d3a5', '#7ce3c2', '#f87171', '#fda4af'], borderRadius: 4 }] },
+  options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.parsed.x + '건' } } },
+    scales: { x: { ticks: { stepSize: 1, callback: v => v + '건' }, grid: { color: '#1f2533' }, beginAtZero: true }, y: { grid: { display: false } } } }
+});
+
+let priceChart = null;
+let volumeChart = null;
+const fmtKRW = v => v.toLocaleString('ko-KR');
+function computeBB(cl, p, k){
+  var up=[], mid=[], low=[];
+  for(var i=0;i<cl.length;i++){
+    if(i < p-1){ up.push(null); mid.push(null); low.push(null); continue; }
+    var s=0; for(var j=i-p+1;j<=i;j++){ s+=cl[j]; }
+    var m=s/p, v=0;
+    for(var j2=i-p+1;j2<=i;j2++){ var d=cl[j2]-m; v+=d*d; }
+    var sd=Math.sqrt(v/p);
+    mid.push(m); up.push(m+k*sd); low.push(m-k*sd);
+  }
+  return { up:up, mid:mid, low:low };
+}
+const fmtVolM = v => v >= 1e6 ? (v/1e6).toFixed(1) + 'M' : (v/1e3).toFixed(0) + 'K';
+function renderPriceCharts(periodDays) {
+  const data = (typeof STOCK_OHLCV !== 'undefined') ? STOCK_OHLCV : [];
+  if (!data.length) { console.warn('OHLCV data not loaded'); return; }
+  const slice = periodDays >= data.length ? data : data.slice(-periodDays);
+  const labels = slice.map(r => r[0]);
+  const prices = slice.map(r => r[1]);
+  const volumes = slice.map(r => r[2]);
+  const tickStep = Math.max(1, Math.floor(slice.length / 8));
+  var _cl = data.map(function(r){ return r[1]; });
+  var _bb = computeBB(_cl, 20, 2);
+  var _bn = slice.length;
+  var bbU = _bb.up.slice(-_bn), bbM = _bb.mid.slice(-_bn), bbL = _bb.low.slice(-_bn);
+  var brkU = prices.map(function(p,i){ return (bbU[i]!=null && p>=bbU[i]) ? p : null; });
+  var brkL = prices.map(function(p,i){ return (bbL[i]!=null && p<=bbL[i]) ? p : null; });
+  if (priceChart) priceChart.destroy();
+  if (volumeChart) volumeChart.destroy();
+  priceChart = new Chart(document.getElementById('priceChart'), {
+    type: 'line',
+    data: { labels, datasets: [
+      { label: '종가 (원)', data: prices, borderColor: '#60a5fa', backgroundColor: 'rgba(96,165,250,0.12)', borderWidth: 1.8, pointRadius: 0, pointHoverRadius: 4, fill: true, tension: 0.15 },
+      { label: 'BB 상단(20·2σ)', data: bbU, borderColor: 'rgba(167,139,250,0.5)', borderWidth: 1, borderDash: [4,3], pointRadius: 0, pointHoverRadius: 0, fill: '+2', backgroundColor: 'rgba(167,139,250,0.07)', tension: 0 },
+      { label: 'BB 중심(20MA)', data: bbM, borderColor: 'rgba(251,191,36,0.75)', borderWidth: 1, pointRadius: 0, pointHoverRadius: 0, fill: false, tension: 0 },
+      { label: 'BB 하단', data: bbL, borderColor: 'rgba(167,139,250,0.5)', borderWidth: 1, borderDash: [4,3], pointRadius: 0, pointHoverRadius: 0, fill: false, tension: 0 },
+      { label: '상단 돌파', data: brkU, showLine: false, pointStyle: 'circle', pointRadius: 4, pointHoverRadius: 6, backgroundColor: '#f87171', borderColor: '#ffffff', borderWidth: 1, fill: false },
+      { label: '하단 이탈', data: brkL, showLine: false, pointStyle: 'circle', pointRadius: 4, pointHoverRadius: 6, backgroundColor: '#60a5fa', borderColor: '#ffffff', borderWidth: 1, fill: false }
+    ] },
+    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { display: false },
+        tooltip: { backgroundColor: '#161b27', borderColor: '#252c3b', borderWidth: 1, padding: 10,
+          callbacks: { label: function(c){ return (c.dataset.label||'') + ': ' + fmtKRW(c.parsed.y) + '원'; } } } },
+      scales: { y: { ticks: { callback: v => fmtKRW(v) }, grid: { color: '#1f2533' } },
+        x: { ticks: { autoSkip: false, maxRotation: 0, callback: function(v, i) { return i % tickStep === 0 ? this.getLabelForValue(v) : '' } }, grid: { display: false } } } }
+  });
+  volumeChart = new Chart(document.getElementById('volumeChart'), {
+    type: 'bar',
+    data: { labels, datasets: [{ label: '거래량', data: volumes, backgroundColor: 'rgba(167,139,250,0.55)', borderWidth: 0, barPercentage: 1.0, categoryPercentage: 0.95 }] },
+    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { display: false },
+        tooltip: { backgroundColor: '#161b27', borderColor: '#252c3b', borderWidth: 1, padding: 10,
+          callbacks: { label: c => '거래량: ' + c.parsed.y.toLocaleString('ko-KR') + '주' } } },
+      scales: { y: { ticks: { callback: v => fmtVolM(v), maxTicksLimit: 4 }, grid: { color: '#1f2533' } },
+        x: { ticks: { autoSkip: false, maxRotation: 0, callback: function(v, i) { return i % tickStep === 0 ? this.getLabelForValue(v) : '' } }, grid: { display: false } } } }
+  });
+}
+document.querySelectorAll('.period-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderPriceCharts(parseInt(btn.dataset.period));
+    applyChartTheme();
+  });
+});
+renderPriceCharts(250);
+
+const currentPrice = 504000;
+new Chart(document.getElementById('forecastChart'), {
+  type: 'line',
+  data: { labels: ['현재', '6개월 후', '12개월 후'], datasets: [
+    { label: '🟢 강세 (35%)', data: [currentPrice, 573000, 642600], borderColor: '#22d3a5', backgroundColor: 'rgba(34,211,165,0.08)', borderWidth: 2.5, pointRadius: 6, pointHoverRadius: 8, tension: 0.25, fill: false },
+    { label: '🟡 기본 (45%)', data: [currentPrice, 550000, 595000], borderColor: '#fbbf24', backgroundColor: 'rgba(251,191,36,0.08)', borderWidth: 2.5, pointRadius: 6, pointHoverRadius: 8, tension: 0.25, fill: false },
+    { label: '🔴 약세 (20%)', data: [currentPrice, 474000, 443520], borderColor: '#f87171', backgroundColor: 'rgba(248,113,113,0.08)', borderWidth: 2.5, pointRadius: 6, pointHoverRadius: 8, tension: 0.25, fill: false },
+    { label: '⚖️ 가중 기댓값', data: [currentPrice, 542850, 581364], borderColor: '#60a5fa', backgroundColor: 'rgba(96,165,250,0.18)', borderWidth: 3, borderDash: [6, 4], pointRadius: 7, pointHoverRadius: 9, pointStyle: 'rectRot', tension: 0.25, fill: true }
+  ] },
+  options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+    plugins: { legend: { position: 'top', labels: { boxWidth: 14, padding: 14, font: { size: 12, weight: '600' } } },
+      tooltip: { backgroundColor: '#161b27', borderColor: '#252c3b', borderWidth: 1, padding: 12,
+        callbacks: { label: function(c) { const v = c.parsed.y; const ret = ((v / currentPrice - 1) * 100).toFixed(1); const sign = ret >= 0 ? '+' : ''; return c.dataset.label + ': ' + fmtKRW(v) + '원 (' + sign + ret + '%)'; } } } },
+    scales: { y: { ticks: { callback: v => fmtKRW(v) }, grid: { color: '#1f2533' } }, x: { grid: { display: false } } } }
+});
+
+applyChartTheme();
+</script>
+</body>
+</html>
